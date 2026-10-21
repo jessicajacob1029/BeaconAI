@@ -63,3 +63,12 @@ def test_k_values_must_be_positive() -> None:
 def test_project_path_resolves_relative_only(tmp_path: Path) -> None:
     assert project_path(Path("reports")) == PROJECT_ROOT / "reports"
     assert project_path(tmp_path) == tmp_path
+
+
+def test_tie_breakers_default_and_validation() -> None:
+    _, train, _, _ = require_training(load_config())
+    assert train.tie_breakers == ["top1_accuracy", "macro_f1"]
+    raw = _base_raw()
+    raw["train"]["tie_breakers"] = ["auc"]
+    with pytest.raises(ValidationError, match="tie_breakers"):
+        Config.model_validate(raw)

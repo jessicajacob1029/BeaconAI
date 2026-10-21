@@ -28,3 +28,9 @@ def test_labels_and_manifest(toy_processed: Path) -> None:
 def test_missing_split_says_run_make_data(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="make data"):
         load_split(tmp_path, "train")
+
+
+def test_feature_names_in_column_order(toy_processed: Path) -> None:
+    from beaconai.models.dataset import load_feature_names
+
+    assert load_feature_names(toy_processed) == [f"F_{i}" for i in range(TOY_FEATURES)]

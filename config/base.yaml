@@ -51,6 +51,9 @@ train:
   models: [logreg, xgboost, mlp]
   # Picks the winner per model type and the registered champion. Validation split only.
   selection_metric: top3_accuracy
+  # With all evidences known, several models reach top-3 = 1.0 on validation, so exact ties
+  # are broken by these metrics, in order.
+  tie_breakers: [top1_accuracy, macro_f1]
   # Single-patient predict_proba calls timed per model (median reported).
   latency_calls: 100
 

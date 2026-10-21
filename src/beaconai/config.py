@@ -98,6 +98,8 @@ class ModelsConfig(_StrictModel):
 class TrainConfig(_StrictModel):
     models: list[ModelName] = Field(min_length=1)
     selection_metric: str = "top3_accuracy"
+    # Used in order only when the selection metric ties exactly.
+    tie_breakers: list[str] = Field(default_factory=lambda: ["top1_accuracy", "macro_f1"])
     latency_calls: int = Field(default=100, gt=0)
 
 
@@ -139,11 +141,16 @@ class Config(_StrictModel):
         if self.train is None or self.eval is None:
             return self
         known = {f"top{k}_accuracy" for k in self.eval.ks} | {"macro_f1"}
+        for k in self.eval.ddx_ks:
+            known |= {f"ddx_precision_at{k}", f"ddx_recall_at{k}", f"ddx_recall_norm_at{k}"}
         if self.train.selection_metric not in known:
             raise ValueError(
                 f"train.selection_metric {self.train.selection_metric!r} is not computed; "
                 f"choose one of {sorted(known)}"
             )
+        unknown = [m for m in self.train.tie_breakers if m not in known]
+        if unknown:
+            raise ValueError(f"train.tie_breakers {unknown} are not computed")
         return self
 
 

@@ -44,3 +44,9 @@ def load_labels(processed_dir: Path) -> list[dict[str, Any]]:
 
 def load_manifest(processed_dir: Path) -> dict[str, Any]:
     return _read_json(processed_dir / "manifest.json")
+
+
+def load_feature_names(processed_dir: Path) -> list[str]:
+    """Column names in matrix order, e.g. `E_55_@_V_14`."""
+    features = sorted(_read_json(processed_dir / "features.json"), key=lambda f: f["index"])
+    return [f["name"] for f in features]
