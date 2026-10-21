@@ -1539,6 +1539,8 @@ def test_calibration_plots_write_png(tmp_path: Path) -> None:
 
 ```python
 # tests/eval/test_calibration_report.py
+import unicodedata
+
 from beaconai.eval.calibration_report import render_calibration
 
 
@@ -1609,7 +1611,7 @@ def test_report_tables_and_champion() -> None:
     assert "Champion: **xgboost + temperature**" in md
     assert "below the top-3 floor" in md  # logreg isotonic excluded on the floor
     assert "![xgboost reliability](figures/reliability_xgboost.png)" in md
-    assert "\u2014" not in md
+    assert "EM DASH" not in {unicodedata.name(ch, "") for ch in md}  # docs style: no em dashes
 
 
 def test_report_abstention_section() -> None:
