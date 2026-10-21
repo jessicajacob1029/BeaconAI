@@ -72,7 +72,7 @@ def to_prediction(
         return Abstain(
             reason=(
                 "Not confident enough to rank conditions: the most likely one has probability "
-                f"{best:.2f}, below the threshold of {threshold:.2f}. More information is needed."
+                f"{best:.3f}, below the threshold of {threshold:.3f}. More information is needed."
             ),
             top_probability=best,
         )

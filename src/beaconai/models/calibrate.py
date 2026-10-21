@@ -152,13 +152,20 @@ def _log_candidate(
     return CalibrationResult(name, method, run.info.run_id, uri, metrics, temperature)
 
 
-def _at_threshold(y: np.ndarray, proba: np.ndarray, threshold: float, k: int) -> dict[str, float]:
+def answered_at(y: np.ndarray, proba: np.ndarray, threshold: float, k: int) -> dict[str, Any]:
+    """Coverage and accuracy at one threshold. Accuracy is None (not NaN) if nobody is answered."""
     curve = coverage_curve(y, proba, [threshold], k)
-    return {
-        "coverage": float(curve.coverage[0]),
-        "top1_accuracy": float(curve.top1_accuracy[0]),
-        "topk_accuracy": float(curve.topk_accuracy[0]),
+    coverage = float(curve.coverage[0])
+    out: dict[str, Any] = {
+        "coverage": coverage,
+        "top1_accuracy": None if coverage == 0 else float(curve.top1_accuracy[0]),
+        "topk_accuracy": None if coverage == 0 else float(curve.topk_accuracy[0]),
     }
+    if coverage == 0:
+        out["note"] = (
+            f"No patients are answered at threshold {threshold:.3f}; accuracy is undefined."
+        )
+    return out
 
 
 def run_calibration(cfg: Config) -> dict[str, Any]:
@@ -270,8 +277,8 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             f"{champion.model} + {champion.method}",
         )
         mlflow.log_artifact(str(cov_path))
-        full_at = _at_threshold(held.y, p_held, abst.threshold, k)
-        partial_at = _at_threshold(partial.y, p_partial, abst.threshold, k)
+        full_at = answered_at(held.y, p_held, abst.threshold, k)
+        partial_at = answered_at(partial.y, p_partial, abst.threshold, k)
         mlflow.log_metrics(
             {
                 "champion_partial_ece": champion.metrics["partial_ece"],
@@ -330,7 +337,9 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
     }
     reports.mkdir(parents=True, exist_ok=True)
     (reports / f"calibration_summary{sfx}.json").write_text(
-        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+        # allow_nan=False: the summary must be strict JSON (missing values are null).
+        json.dumps(summary, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
     )
     md = render_calibration(
         summary,

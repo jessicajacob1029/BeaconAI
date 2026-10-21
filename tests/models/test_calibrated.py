@@ -118,3 +118,10 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
     evidence = PatientEvidence(evidence=["E_2"], age=60, sex="M")
     assert loaded.predict_differential(evidence) == clf.predict_differential(evidence)
     assert loaded.threshold == 0.3 and loaded.k == 2
+
+
+def test_abstain_message_uses_three_decimals() -> None:
+    # 0.835 would round to 0.84 and read "0.84, below the threshold of 0.84".
+    pred = to_prediction(np.array([0.835, 0.1, 0.065]), LABELS, k=3, threshold=0.84)
+    assert isinstance(pred, Abstain)
+    assert "0.835" in pred.reason and "0.840" in pred.reason

@@ -146,3 +146,22 @@ def test_retraining_after_calibration_keeps_calibrated_champion(tmp_path: Path) 
     assert int(champ.version) == calibrated["registered"]["version"]
     raw = client.get_model_version_by_alias("beaconai-classifier", "raw-champion")
     assert int(raw.version) == retrained["registered"]["version"]
+
+
+def test_answered_at_writes_null_and_note_when_nobody_is_answered() -> None:
+    from beaconai.models.calibrate import answered_at
+
+    proba = np.array([[0.6, 0.4], [0.7, 0.3]])
+    out = answered_at(np.array([0, 1]), proba, threshold=0.95, k=1)
+    assert out["coverage"] == 0.0
+    assert out["top1_accuracy"] is None and out["topk_accuracy"] is None
+    assert "No patients" in out["note"]
+    json.dumps(out, allow_nan=False)  # strict JSON: no NaN anywhere
+
+
+def test_answered_at_without_note_when_some_are_answered() -> None:
+    from beaconai.models.calibrate import answered_at
+
+    out = answered_at(np.array([0, 1]), np.array([[0.6, 0.4], [0.7, 0.3]]), 0.65, k=1)
+    assert out["coverage"] == 0.5 and out["top1_accuracy"] == 0.0
+    assert "note" not in out
