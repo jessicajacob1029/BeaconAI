@@ -14,7 +14,7 @@ from sklearn.metrics import confusion_matrix as _sk_confusion_matrix
 from sklearn.metrics import f1_score
 
 
-def _check(y_true: np.ndarray, proba: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def check_inputs(y_true: np.ndarray, proba: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     y = np.asarray(y_true).astype(np.int64).ravel()
     p = np.asarray(proba, dtype=np.float64)
     if p.ndim != 2:
@@ -37,7 +37,7 @@ def top_k_indices(proba: np.ndarray, k: int) -> np.ndarray:
 
 
 def top_k_accuracy(y_true: np.ndarray, proba: np.ndarray, k: int) -> float:
-    y, p = _check(y_true, proba)
+    y, p = check_inputs(y_true, proba)
     return float((top_k_indices(p, k) == y[:, None]).any(axis=1).mean())
 
 
@@ -109,7 +109,7 @@ def evaluate_predictions(
     ks: Sequence[int],
     ddx_ks: Sequence[int],
 ) -> EvalResult:
-    y, p = _check(y_true, proba)
+    y, p = check_inputs(y_true, proba)
     y_pred = p.argmax(axis=1)
     metrics = {f"top{k}_accuracy": top_k_accuracy(y, p, k) for k in ks}
     metrics["macro_f1"] = macro_f1(y, y_pred)
