@@ -20,7 +20,7 @@
 - Use the dev subsample (`data.dev_sample: 50000`) while iterating.
 - Synthetic data only. Tests use tiny hand-made arrays, never the real files.
 - Docs and report text: plain and direct, no em dashes. Every generated report states that BeaconAI is decision support, not diagnosis, trained on synthetic data.
-- No AI attribution, co-author trailers, or mentions of AI assistants in commits, code comments, or any tracked file.
+- No tool attribution or co-author trailers in commits, code comments, or any tracked file.
 - Each phase ends with tests passing, `ruff check` clean, a `reports/CHANGELOG.md` entry with key metrics, and a commit.
 
 ## Review Focus

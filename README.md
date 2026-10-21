@@ -6,17 +6,19 @@ AI clinical triage assistant: describe symptoms in plain language, get a ranked 
 
 ## Status
 
-Phase 1 (data pipeline). See `ROADMAP.md` for the build plan.
+Phase 2 (baseline models and evaluation) done. Next: calibration and abstention.
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/). On macOS, XGBoost also needs OpenMP: `brew install libomp`.
 
 ```
 make setup   # install dependencies and git hooks
 make lint    # ruff check + format check
 make test    # pytest
 ```
+
+On macOS, run Python through `make` (or set `DYLD_LIBRARY_PATH` as the error message shows). torch and XGBoost each ship an OpenMP runtime, and two runtimes in one process crash during training. The Makefile points both at torch's copy.
 
 ## Data
 
@@ -31,5 +33,24 @@ make eda     # save class balance, evidences per patient, and age plots to repor
 - Processed files go to `data/processed/ddxplus/`: sparse float32 feature matrices per split, labels, the ground-truth differential, and `features.json`, which gives a readable label for every column.
 - `data.dev_sample` in `config/base.yaml` caps each split at that many patients for fast iteration. Set it to `null` for the full dataset.
 - Encoding: binary evidences are 0/1. The six 0-10 scale evidences are one column each (value / 10, 0 when absent). Other categorical evidences are one-hot. Multi-choice evidences are multi-hot. Age is both bucketed and scaled (age / 110). Sex is one column.
+
+## Models and evaluation
+
+Three classifiers share one wrapper (`fit`, `predict_proba`, `save`, `load`): multinomial logistic regression (baseline), XGBoost (main), and a small PyTorch MLP. All hyperparameters and search grids are in `config/base.yaml`.
+
+```
+make train        # grid search on the validation split, every trial logged to MLflow
+make eval-val     # validation-only reports/model_comparison.md, safe while iterating
+make train-final  # retrain only the winning settings (used for the full-data run)
+make eval         # score the test split once, on the full dataset
+make mlflow       # MLflow UI on http://localhost:5000
+```
+
+- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier` with alias `champion`.
+- The test split is scored once. `make eval` refuses to run on the dev subsample or a second time (`reports/test_eval_lock.json`).
+- Metrics: top-1/3/5 accuracy, macro F1, per-class recall, confusion matrix, and overlap with the DDXPlus reference differential (precision@k, raw recall@k, and normalized recall@k = hits / min(k, |differential|); normalized recall@3 is the headline).
+- Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final` and `BEACONAI_DEV_SAMPLE=null make eval`. Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)
+
+Results: `reports/model_comparison.md`. Analysis and model choice: `docs/phase2_analysis.md`.
 
 Old code from the previous hospital management app is in `legacy/` and is not used.
