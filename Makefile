@@ -1,5 +1,10 @@
 .PHONY: help setup data eda train eval test lint format serve ui mlflow
 
+# macOS: torch and XGBoost must share torch's OpenMP runtime (see src/beaconai/models/openmp.py).
+ifeq ($(shell uname -s),Darwin)
+export DYLD_LIBRARY_PATH := $(CURDIR)/.venv/lib/python3.11/site-packages/torch/lib
+endif
+
 help:  ## List available commands
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
 
