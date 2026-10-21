@@ -10,6 +10,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from beaconai.eval.calibration import CoverageCurve, ReliabilityBins
+
 
 def _save(fig: plt.Figure, path: Path) -> Path:
     fig.tight_layout()
@@ -47,4 +49,46 @@ def plot_per_class_recall(
     ax.set_xlim(0, 1)
     ax.set_xlabel("Recall")
     ax.set_title(title)
+    return _save(fig, path)
+
+
+def plot_reliability(panels: dict[str, dict[str, ReliabilityBins]], path: Path, title: str) -> Path:
+    """One panel per evidence setting; one line per calibration method; diagonal = perfect."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(6 * len(panels), 5.5), squeeze=False)
+    for ax, (panel, curves) in zip(axes[0], panels.items(), strict=True):
+        ax.plot([0, 1], [0, 1], linestyle="--", color="grey", label="Perfect calibration")
+        for label, bins in curves.items():
+            used = bins.counts > 0
+            ax.plot(bins.confidence[used], bins.accuracy[used], marker="o", label=label)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_xlabel("Probability of the top condition")
+        ax.set_ylabel("Share where the top condition was right")
+        ax.set_title(panel)
+        ax.legend(loc="upper left", fontsize=8)
+    fig.suptitle(title)
+    return _save(fig, path)
+
+
+def plot_coverage(
+    curves: dict[str, CoverageCurve], threshold: float, path: Path, title: str
+) -> Path:
+    """Accuracy on answered patients as the model answers fewer of them."""
+    fig, ax = plt.subplots(figsize=(7, 5))
+    for label, curve in curves.items():
+        line = ax.plot(curve.coverage, curve.topk_accuracy, label=f"{label}, top-{curve.k}")[0]
+        ax.plot(
+            curve.coverage,
+            curve.top1_accuracy,
+            linestyle=":",
+            color=line.get_color(),
+            label=f"{label}, top-1",
+        )
+        i = int(np.argmin(np.abs(curve.thresholds - threshold)))
+        ax.scatter(curve.coverage[i], curve.topk_accuracy[i], color=line.get_color(), zorder=3)
+    ax.set_xlim(0, 1.02)
+    ax.set_xlabel("Coverage (share of patients answered)")
+    ax.set_ylabel("Accuracy on answered patients")
+    ax.set_title(f"{title} (dots: threshold {threshold:.2f})")
+    ax.legend(fontsize=8)
     return _save(fig, path)
