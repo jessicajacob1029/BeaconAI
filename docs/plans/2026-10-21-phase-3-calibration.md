@@ -24,12 +24,19 @@
 - On macOS run Python through `make` (shared OpenMP runtime; see `src/beaconai/models/openmp.py`).
 - Phase ends with tests passing, `ruff check` clean, a `reports/CHANGELOG.md` entry with key metrics, and a commit.
 
+## Amendments after review (these override the tasks below)
+
+1. **Selection uses partial evidence.** The champion is the eligible (model, method) pair with the lowest partial-evidence held-out ECE (`partial_ece`). Full-evidence numbers are reported alongside for comparison.
+2. **Two top-3 floors.** Config `calibration.top3_floor` becomes `{full: 0.99, partial: <value>}`. A pair is eligible only if its held-out top-3 accuracy meets the full floor and its partial-evidence top-3 accuracy meets the partial floor. `select_calibrated(results, floor_full, floor_partial)`. The partial floor is set once from the dev run (raw models, before any calibration choice) and documented.
+3. **Limitation section in the report.** `reports/calibration.md` gains a section "Limitation: not asked is read as no" with a table per candidate: top-3 full, top-3 partial, drop in points, ECE full, ECE partial, increase; plus one sentence quantifying it for the champion. `render_calibration` is tested for it.
+4. **ROADMAP note before Phase 8** (local file): retrain with random evidence dropout, or a yes/no/not-asked encoding, and compare partial-evidence ECE against this Phase 3 baseline.
+
 ## Method decisions (confirm at review)
 
 1. **Held-out calibration scoring.** Validation is split per class (`calibration.fit_fraction: 0.5`). Isotonic regression in particular looks perfect on the rows it was fit to, so measuring ECE there would be meaningless.
 2. **ECE definition.** Top-label ECE (confidence = top-1 probability), 15 equal-width bins, weighted by bin size (Guo et al. 2017). NLL is reported alongside.
 3. **Partial evidence is per evidence, not per column.** An evidence is one question (for example `E_55`, with all its selected values). Each patient keeps the initial evidence plus 3 other random evidences; age and sex are always kept. Caveat recorded in the report: the models read a missing evidence as "no", so partial evidence also tests how a model trained on complete answers behaves when most answers are missing.
-4. **Selection.** Candidates are (model, method) pairs, including `none` (raw). A candidate is eligible if its held-out top-3 accuracy is at least `calibration.top3_floor` (isotonic can change the ranking, temperature cannot). The champion is the eligible candidate with the lowest full-evidence held-out ECE. Partial-evidence ECE is reported, not used for selection.
+4. **Selection.** Candidates are (model, method) pairs, including `none` (raw). See Amendments 1 and 2: eligibility needs both top-3 floors; the champion has the lowest partial-evidence ECE (isotonic can change the ranking, temperature cannot).
 5. **Abstention.** `predict_differential` abstains when the calibrated top-1 probability is below `abstention.threshold`. A patient whose top-1 probability equals the threshold is answered. The threshold is chosen from the partial-evidence coverage vs accuracy curve: the tool reports the smallest threshold whose answered patients reach `abstention.target_accuracy` top-3 accuracy, and the chosen value is written to config and justified in `docs/phase3_calibration.md`.
 
 ## Review Focus
