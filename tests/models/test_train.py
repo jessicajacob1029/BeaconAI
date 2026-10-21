@@ -12,7 +12,7 @@ from tests.conftest import make_config, write_toy_processed
 
 def test_run_training_logs_registers_and_summarises(tmp_path: Path) -> None:
     cfg = make_config(tmp_path, dev_sample=50000)
-    processed = write_toy_processed(tmp_path / "processed")
+    processed = write_toy_processed(tmp_path / "processed", dev_sample=50000)
     summary = run_training(cfg)
 
     # 2 logreg + 1 xgboost + 1 mlp trials, each its own nested run.
@@ -27,8 +27,10 @@ def test_run_training_logs_registers_and_summarises(tmp_path: Path) -> None:
     assert written == summary
 
     configure_mlflow(cfg.mlflow)
-    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "champion")
+    # A dev-subsample run moves the `dev` alias only; `champion` is reserved for full data.
+    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "dev")
     assert int(mv.version) == summary["registered"]["version"]
+    assert mv.tags["dev_sample"] == "50000"
     runs = mlflow.search_runs(search_all_experiments=True)
     assert len(runs) == 5  # parent + 4 trials
     child = runs[runs["tags.model_type"] == "logreg"].iloc[0]
@@ -45,7 +47,7 @@ def test_run_training_logs_registers_and_summarises(tmp_path: Path) -> None:
 
 def test_winners_only_reuses_best_params(tmp_path: Path) -> None:
     cfg = make_config(tmp_path, dev_sample=50000)
-    write_toy_processed(tmp_path / "processed")
+    write_toy_processed(tmp_path / "processed", dev_sample=50000)
     first = run_training(cfg)
     second = run_training(cfg, winners_only=True)
     assert second["mode"] == "winners"
@@ -82,3 +84,43 @@ def test_logged_model_serves_named_feature_frames(tmp_path: Path) -> None:
     np.testing.assert_allclose(
         np.asarray(served.predict(frame)), load_wrapper(uri).predict_proba(test.X), rtol=1e-6
     )
+
+
+def test_full_data_run_moves_champion_alias(tmp_path: Path) -> None:
+    cfg = make_config(tmp_path, dev_sample=None)
+    write_toy_processed(tmp_path / "processed")
+    summary = run_training(cfg)
+    configure_mlflow(cfg.mlflow)
+    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "champion")
+    assert int(mv.version) == summary["registered"]["version"]
+    assert summary["registered"]["alias"] == "champion"
+
+
+def test_dev_run_does_not_move_champion(tmp_path: Path) -> None:
+    full = make_config(tmp_path, dev_sample=None)
+    write_toy_processed(tmp_path / "processed")
+    first = run_training(full)
+    dev = make_config(tmp_path, dev_sample=50000)
+    manifest = tmp_path / "processed" / "ddxplus" / "manifest.json"
+    data = json.loads(manifest.read_text())
+    data["settings"]["dev_sample"] = 50000
+    manifest.write_text(json.dumps(data))
+    second = run_training(dev)
+    configure_mlflow(full.mlflow)
+    client = MlflowClient()
+    champ = client.get_model_version_by_alias("beaconai-classifier", "champion")
+    assert int(champ.version) == first["registered"]["version"]
+    assert second["registered"]["alias"] == "dev"
+    dev_mv = client.get_model_version_by_alias("beaconai-classifier", "dev")
+    assert int(dev_mv.version) == second["registered"]["version"]
+
+
+def test_training_refuses_when_data_scope_differs_from_config(tmp_path: Path) -> None:
+    import pytest
+
+    from beaconai.models.train import DataScopeError
+
+    cfg = make_config(tmp_path, dev_sample=None)  # config says full data ...
+    write_toy_processed(tmp_path / "processed", dev_sample=50000)  # ... disk holds dev data
+    with pytest.raises(DataScopeError, match="preprocess"):
+        run_training(cfg)

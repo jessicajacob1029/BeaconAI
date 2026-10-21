@@ -40,13 +40,14 @@ Three classifiers share one wrapper (`fit`, `predict_proba`, `save`, `load`): mu
 
 ```
 make train        # grid search on the validation split, every trial logged to MLflow
-make eval-val     # validation-only reports/model_comparison.md, safe while iterating
+make eval-val     # validation-only reports/model_comparison_val.md, safe while iterating
 make train-final  # retrain only the winning settings (used for the full-data run)
 make eval         # score the test split once, on the full dataset
 make mlflow       # MLflow UI on http://localhost:5000
 ```
 
-- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier` with alias `champion`.
+- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier`. Full-data runs move the `champion` alias; dev-subsample runs move only the `dev` alias.
+- Training and evaluation check that the processed data on disk matches the expected scope (dev subsample or full) and refuse with the rebuild command if not.
 - The test split is scored once. `make eval` refuses to run on the dev subsample or a second time (`reports/test_eval_lock.json`).
 - Metrics: top-1/3/5 accuracy, macro F1, per-class recall, confusion matrix, and overlap with the DDXPlus reference differential (precision@k, raw recall@k, and normalized recall@k = hits / min(k, |differential|); normalized recall@3 is the headline).
 - Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final` and `BEACONAI_DEV_SAMPLE=null make eval`. Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)

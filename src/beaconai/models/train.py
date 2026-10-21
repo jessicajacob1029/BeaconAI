@@ -47,6 +47,26 @@ from beaconai.models.seed import set_global_seed
 from beaconai.models.tuning import TrialResult, expand_grid, flatten_params, select_best
 
 SUMMARY_FILE = "train_summary.json"
+
+
+class DataScopeError(RuntimeError):
+    """The processed data on disk is not the data the config or a training run expects."""
+
+
+def data_scope(processed: Path) -> int | None:
+    """dev_sample the processed data on disk was built with (None = full dataset)."""
+    return load_manifest(processed).get("settings", {}).get("dev_sample")
+
+
+def check_data_scope(expected: int | None, on_disk: int | None) -> None:
+    if expected != on_disk:
+        raise DataScopeError(
+            f"Processed data was built with dev_sample={on_disk}, but dev_sample={expected} "
+            "is expected. Rebuild it first: `make data` for the dev subsample, or "
+            "`BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess` for full data."
+        )
+
+
 PIP_REQUIREMENTS = ["numpy", "scipy", "pandas", "scikit-learn", "xgboost", "torch"]
 
 
@@ -140,15 +160,23 @@ def run_trial(
     )
 
 
-def register_champion(champion: TrialResult, cfg: MlflowConfig, metric: str) -> int:
+def register_champion(
+    champion: TrialResult, cfg: MlflowConfig, metric: str, dev_sample: int | None, mode: str
+) -> tuple[int, str]:
+    """Register the winner. Only full-data runs move the champion alias."""
     mv = mlflow.register_model(champion.model_uri, cfg.registered_model)
+    alias = cfg.champion_alias if dev_sample is None else cfg.dev_alias
     client = MlflowClient()
-    client.set_registered_model_alias(cfg.registered_model, cfg.champion_alias, mv.version)
-    client.set_model_version_tag(cfg.registered_model, mv.version, "model_type", champion.model)
-    client.set_model_version_tag(
-        cfg.registered_model, mv.version, f"val_{metric}", str(champion.val_metrics[metric])
-    )
-    return int(mv.version)
+    client.set_registered_model_alias(cfg.registered_model, alias, mv.version)
+    tags = {
+        "model_type": champion.model,
+        f"val_{metric}": str(champion.val_metrics[metric]),
+        "dev_sample": str(dev_sample),
+        "mode": mode,
+    }
+    for key, value in tags.items():
+        client.set_model_version_tag(cfg.registered_model, mv.version, key, value)
+    return int(mv.version), alias
 
 
 def run_training(cfg: Config, *, winners_only: bool = False) -> dict[str, Any]:
@@ -156,6 +184,8 @@ def run_training(cfg: Config, *, winners_only: bool = False) -> dict[str, Any]:
     processed = processed_dir_from_config(cfg.data.paths.processed)
     reports = project_path(eval_cfg.output_dir)
     summary_path = reports / SUMMARY_FILE
+    dev_sample = data_scope(processed)
+    check_data_scope(cfg.data.dev_sample, dev_sample)
     plan = trial_plan(cfg, winners_only, summary_path)
 
     class_names = [lab["name"] for lab in load_labels(processed)]
@@ -168,7 +198,7 @@ def run_training(cfg: Config, *, winners_only: bool = False) -> dict[str, Any]:
     with mlflow.start_run(run_name="phase2-train") as parent:
         mlflow.set_tags(
             {
-                "dev_sample": str(cfg.data.dev_sample),
+                "dev_sample": str(dev_sample),
                 "mode": mode,
                 "selection_metric": f"val_{metric}",
             }
@@ -187,15 +217,15 @@ def run_training(cfg: Config, *, winners_only: bool = False) -> dict[str, Any]:
         mlflow.log_metric(f"champion_val_{metric}", champion.val_metrics[metric])
         mlflow.set_tag("champion", champion.model)
 
-    version = register_champion(champion, mlflow_cfg, metric)
+    version, alias = register_champion(champion, mlflow_cfg, metric, dev_sample, mode)
     summary = {
         "parent_run_id": parent.info.run_id,
-        "dev_sample": cfg.data.dev_sample,
+        "dev_sample": dev_sample,
         "mode": mode,
         "selection_metric": metric,
         "tie_breakers": list(train_cfg.tie_breakers),
         "champion": champion.model,
-        "registered": {"name": mlflow_cfg.registered_model, "version": version},
+        "registered": {"name": mlflow_cfg.registered_model, "version": version, "alias": alias},
         "models": {
             name: {
                 "run_id": r.run_id,

@@ -22,11 +22,19 @@ from beaconai.eval.metrics import EvalResult, evaluate_predictions, top_confusio
 from beaconai.eval.plots import plot_confusion, plot_per_class_recall
 from beaconai.eval.report import ComparisonRow, ConfusionPair, render_comparison
 from beaconai.models.dataset import SplitData, load_labels, load_split
-from beaconai.models.train import SUMMARY_FILE, configure_mlflow, load_wrapper
+from beaconai.models.train import (
+    SUMMARY_FILE,
+    DataScopeError,
+    check_data_scope,
+    configure_mlflow,
+    data_scope,
+    load_wrapper,
+)
 
 LOCK_FILE = "test_eval_lock.json"
-REPORT_FILE = "model_comparison.md"
 SPLITS = ("validate", "test")
+# Validation outputs get their own names so they never overwrite the one-time test report.
+SUFFIX = {"validate": "_val", "test": ""}
 
 
 class TestGuardError(Exception):
@@ -85,11 +93,12 @@ def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
     if not summary_path.is_file():
         raise FileNotFoundError(f"{summary_path} not found. Run `make train` first.")
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    processed = processed_dir_from_config(cfg.data.paths.processed)
+    check_data_scope(summary["dev_sample"], data_scope(processed))
     lock_path = reports / LOCK_FILE
     if split == "test":
         check_test_allowed(summary, lock_path, force)
 
-    processed = processed_dir_from_config(cfg.data.paths.processed)
     labels = load_labels(processed)
     names = [lab["name"] for lab in labels]
     data = load_split(processed, split)
@@ -120,14 +129,14 @@ def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
         ]
 
         champ = results[champion]
+        sfx = SUFFIX[split]
+        cm_name, recall_name = f"confusion_matrix{sfx}.png", f"per_class_recall{sfx}.png"
         figures = reports / "figures"
-        cm_path = plot_confusion(
-            champ.confusion, names, figures / "confusion_matrix.png", f"{champion} ({split})"
-        )
+        cm_path = plot_confusion(champ.confusion, names, figures / cm_name, f"{champion} ({split})")
         recall_path = plot_per_class_recall(
             champ.recall,
             names,
-            figures / "per_class_recall.png",
+            figures / recall_name,
             f"{champion} per-class recall ({split})",
         )
         lowest = sorted(
@@ -144,10 +153,10 @@ def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
             dataset_note=f"DDXPlus {scope}, {data.n:,} {split} patients",
             confusions=_confusion_pairs(champ, labels, eval_cfg.top_confusions),
             lowest_recall=lowest,
-            confusion_image="figures/confusion_matrix.png",
-            recall_image="figures/per_class_recall.png",
+            confusion_image=f"figures/{cm_name}",
+            recall_image=f"figures/{recall_name}",
         )
-        report = reports / REPORT_FILE
+        report = reports / f"model_comparison{sfx}.md"
         report.write_text(md, encoding="utf-8")
         for path in (report, cm_path, recall_path):
             mlflow.log_artifact(str(path))
@@ -168,7 +177,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         print(run_evaluation(load_config(), args.split, force=args.force))
-    except TestGuardError as err:
+    except (TestGuardError, DataScopeError) as err:
         print(f"Refused: {err}", file=sys.stderr)
         return 2
     return 0

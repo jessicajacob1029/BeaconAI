@@ -17,8 +17,11 @@ TOY_FEATURES = 6
 TOY_ROWS = {"train": 150, "validate": 60, "test": 60}
 
 
-def write_toy_processed(root: Path, seed: int = 0) -> Path:
-    """Write Phase 1 shaped outputs. Class c switches on features 2c and (mostly) 2c+1."""
+def write_toy_processed(root: Path, seed: int = 0, dev_sample: int | None = None) -> Path:
+    """Write Phase 1 shaped outputs. Class c switches on features 2c and (mostly) 2c+1.
+
+    `dev_sample` is recorded in the manifest, as preprocess does for the real data.
+    """
     out = root / "ddxplus"
     out.mkdir(parents=True)
     rng = np.random.default_rng(seed)
@@ -42,7 +45,12 @@ def write_toy_processed(root: Path, seed: int = 0) -> Path:
         {"index": i, "name": f"F_{i}", "label": f"Feature {i}"} for i in range(TOY_FEATURES)
     ]
     (out / "features.json").write_text(json.dumps(features), encoding="utf-8")
-    manifest = {"splits": TOY_ROWS, "n_features": TOY_FEATURES, "n_classes": TOY_CLASSES}
+    manifest = {
+        "splits": TOY_ROWS,
+        "n_features": TOY_FEATURES,
+        "n_classes": TOY_CLASSES,
+        "settings": {"dev_sample": dev_sample},
+    }
     (out / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return out
 

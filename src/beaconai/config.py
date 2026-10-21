@@ -108,7 +108,9 @@ class MlflowConfig(_StrictModel):
     artifact_root: Path
     experiment: str
     registered_model: str
+    # Full-data runs move champion_alias; dev-subsample runs move dev_alias only.
     champion_alias: str = "champion"
+    dev_alias: str = "dev"
 
 
 class EvalConfig(_StrictModel):

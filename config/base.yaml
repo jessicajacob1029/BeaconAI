@@ -45,7 +45,10 @@ mlflow:
   artifact_root: mlruns/artifacts
   experiment: beaconai-phase2
   registered_model: beaconai-classifier
+  # Full-data runs move `champion`; dev-subsample runs move `dev`, so serving never picks up
+  # a model trained on the subsample by accident.
   champion_alias: champion
+  dev_alias: dev
 
 train:
   models: [logreg, xgboost, mlp]
