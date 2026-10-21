@@ -115,8 +115,10 @@ calibration:
 
 abstention:
   # Abstain when the calibrated top-1 probability is below this (equal is answered).
-  # Chosen from the partial-evidence coverage vs accuracy curve; see docs/phase3_calibration.md.
-  threshold: 0.5
+  # 0.84 is the smallest threshold whose answered partial-evidence patients reach 95% top-3
+  # accuracy (full data: answers 44% on partial evidence, 99% on full evidence). See
+  # docs/phase3_calibration.md.
+  threshold: 0.84
   # The run suggests the smallest threshold whose answered patients reach this top-k accuracy.
   target_accuracy: 0.95
   # k: how many conditions a differential shows.

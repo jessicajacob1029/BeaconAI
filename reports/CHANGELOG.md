@@ -35,3 +35,17 @@
   - MLP: top-1 0.996, macro F1 0.996, DDx normalized recall@3 0.693. Fit 54 s, 0.05 ms.
   - Main confusion: acute rhinosinusitis predicted as chronic (13.4% of acute cases). Only safety-relevant confusion: unstable angina predicted as stable angina (1.5%).
 - With full evidence the task is close to saturated; partial-evidence performance (Phase 8) and calibration (Phase 3) are where the models should be compared next. See `docs/phase2_analysis.md`.
+
+## Phase 3: Calibration and abstention (2026-10-21)
+
+- Calibrators (temperature scaling, isotonic, or none) for XGBoost and logistic regression, fit on half of validation and scored on the other half. Calibrator state is plain JSON.
+- New partial-evidence validation set: each patient keeps the initial evidence plus 3 random other evidences.
+- Champion re-picked by the lowest partial-evidence ECE, with top-3 floors of 0.99 (full evidence) and 0.65 (partial evidence): **logistic regression + temperature scaling** replaces raw XGBoost (`beaconai-classifier` version 8, alias `champion`).
+- One prediction interface: `CalibratedClassifier.predict_differential` returns the top 3 conditions with calibrated probabilities, or `Abstain` with a reason. Abstention threshold 0.84.
+- Every (model, method) pair logged to MLflow (`beaconai-phase3` experiment) with metrics, reliability diagrams, and the calibrated model.
+- Metrics (full data, held-out validation, 66,223 patients):
+  - Champion ECE: full evidence 0.0006, partial evidence 0.082 (raw 0.097). Top-3: full 1.000, partial 0.761.
+  - XGBoost ECE: full 0.0003, partial 0.556 (top-1 on partial 0.282). Calibration does not fix it.
+  - "Not asked is read as no": the champion loses 23.9 points of top-3 accuracy from full to partial evidence.
+  - At threshold 0.84: 99.0% of full-evidence patients answered (top-3 1.000); 44.3% of partial-evidence patients answered (top-1 0.904, top-3 0.952).
+- Decision record: `docs/phase3_calibration.md`.

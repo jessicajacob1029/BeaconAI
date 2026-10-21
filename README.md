@@ -6,7 +6,7 @@ AI clinical triage assistant: describe symptoms in plain language, get a ranked 
 
 ## Status
 
-Phase 2 (baseline models and evaluation) done. Next: calibration and abstention.
+Phase 3 (calibration and abstention) done. Next: explainability.
 
 ## Quickstart
 
@@ -53,5 +53,29 @@ make mlflow       # MLflow UI on http://localhost:5000
 - Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final` and `BEACONAI_DEV_SAMPLE=null make eval`. Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)
 
 Results: `reports/model_comparison.md`. Analysis and model choice: `docs/phase2_analysis.md`.
+
+## Calibration and predictions
+
+```
+make calibrate   # calibrate on validation, pick the champion by partial-evidence ECE, write reports/calibration.md
+```
+
+- Temperature scaling and isotonic calibration are fit on half of validation and scored on the other half. The champion is the calibrated model with the lowest ECE on a partial-evidence version of validation (initial evidence plus 3 random others), subject to top-3 accuracy floors. Decision record: `docs/phase3_calibration.md`.
+- Every downstream component uses one interface:
+
+```python
+from beaconai.config import load_config
+from beaconai.models.calibrate import load_calibrated
+from beaconai.models.calibrated import PatientEvidence, build_feature_space
+from beaconai.models.train import configure_mlflow
+
+cfg = load_config()
+configure_mlflow(cfg.mlflow)  # local MLflow registry in mlruns/
+clf = load_calibrated("models:/beaconai-classifier@champion").with_encoder(build_feature_space(cfg))
+clf.predict_differential(PatientEvidence(evidence=["E_91", "E_55_@_V_14"], age=34, sex="F"))
+# -> Differential (top 3 conditions with probabilities) or Abstain (with a reason)
+```
+
+- It abstains when the top condition's calibrated probability is below `abstention.threshold` (0.84). Known limitation: the models read a question that was not asked as "no", so accuracy and calibration drop with partial evidence (see the report).
 
 Old code from the previous hospital management app is in `legacy/` and is not used.
