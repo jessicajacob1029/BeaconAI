@@ -9,7 +9,7 @@ from beaconai.models.registry import MODEL_REGISTRY, build_model
 
 
 def test_registry_names() -> None:
-    assert set(MODEL_REGISTRY) >= {"logreg"}
+    assert set(MODEL_REGISTRY) == {"logreg", "xgboost", "mlp"}
 
 
 def test_unknown_model_name() -> None:
