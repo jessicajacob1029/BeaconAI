@@ -36,13 +36,27 @@ def write_toy_processed(root: Path, seed: int = 0, dev_sample: int | None = None
         sparse.save_npz(out / f"{split}_X.npz", sparse.csr_matrix(X))
         np.save(out / f"{split}_y.npy", y.astype(np.int16))
         sparse.save_npz(out / f"{split}_ddx.npz", sparse.csr_matrix(ddx))
+        np.savez_compressed(
+            out / f"{split}_meta.npz",
+            age=np.full(n, 40, dtype=np.int16),
+            sex=np.array(["F", "M"] * (n // 2) + ["F"] * (n % 2), dtype="U1"),
+            initial_evidence=np.array([f"E_{2 * c}" for c in y]),
+            n_evidences=np.asarray((X > 0).sum(axis=1), dtype=np.int16),
+        )
     labels = [
         {"index": i, "name": f"Condition {i}", "name_fr": "", "icd10": "", "severity": i + 1}
         for i in range(TOY_CLASSES)
     ]
     (out / "labels.json").write_text(json.dumps(labels), encoding="utf-8")
     features = [
-        {"index": i, "name": f"F_{i}", "label": f"Feature {i}"} for i in range(TOY_FEATURES)
+        {
+            "index": i,
+            "name": f"F_{i}",
+            "kind": "binary",
+            "label": f"Feature {i}",
+            "evidence": f"E_{i}",
+        }
+        for i in range(TOY_FEATURES)
     ]
     (out / "features.json").write_text(json.dumps(features), encoding="utf-8")
     manifest = {
@@ -75,6 +89,12 @@ def make_config(tmp_path: Path, *, dev_sample: int | None) -> Config:
             "grid": {"hidden_sizes": [[8]], "dropout": [0.0], "lr": [0.01]},
         },
     }
+    raw["calibration"].update(
+        ece_bins=10,
+        top3_floor={"full": 0.5, "partial": 0.0},
+        partial_evidence={"extra_evidences": 1},
+    )
+    raw["abstention"].update(curve_points=11, target_accuracy=0.9)
     return Config.model_validate(raw)
 
 
