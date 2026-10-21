@@ -6,9 +6,11 @@ from typing import Any
 
 from beaconai.models.base import ModelWrapper
 from beaconai.models.logreg import LogRegModel
+from beaconai.models.xgb import XGBoostModel
 
 MODEL_REGISTRY: dict[str, type[ModelWrapper]] = {
     LogRegModel.name: LogRegModel,
+    XGBoostModel.name: XGBoostModel,
 }
 
 
