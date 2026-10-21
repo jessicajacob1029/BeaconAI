@@ -46,7 +46,29 @@ def load_manifest(processed_dir: Path) -> dict[str, Any]:
     return _read_json(processed_dir / "manifest.json")
 
 
+def subset(data: SplitData, idx: np.ndarray) -> SplitData:
+    """Rows `idx` of a split, with X, y and the reference differential kept aligned."""
+    return SplitData(
+        X=data.X[idx],
+        y=data.y[idx],
+        ddx=None if data.ddx is None else data.ddx[idx],
+    )
+
+
+def load_meta(processed_dir: Path, split: str) -> dict[str, np.ndarray]:
+    """Raw age, sex, initial evidence code and evidence count per patient."""
+    path = processed_dir / f"{split}_meta.npz"
+    if not path.is_file():
+        raise FileNotFoundError(f"{path} not found. Run `make data` first.")
+    with np.load(path) as meta:
+        return {key: meta[key] for key in meta.files}
+
+
+def load_features(processed_dir: Path) -> list[dict[str, Any]]:
+    """features.json entries in column order."""
+    return sorted(_read_json(processed_dir / "features.json"), key=lambda f: f["index"])
+
+
 def load_feature_names(processed_dir: Path) -> list[str]:
     """Column names in matrix order, e.g. `E_55_@_V_14`."""
-    features = sorted(_read_json(processed_dir / "features.json"), key=lambda f: f["index"])
-    return [f["name"] for f in features]
+    return [f["name"] for f in load_features(processed_dir)]

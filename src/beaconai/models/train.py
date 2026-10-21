@@ -20,7 +20,6 @@ import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 from mlflow import MlflowClient
-from mlflow.models import infer_signature
 
 from beaconai.config import (
     Config,
@@ -41,7 +40,7 @@ from beaconai.models.dataset import (
     load_manifest,
     load_split,
 )
-from beaconai.models.pyfunc import ARTIFACT_KEY, BeaconPyfunc
+from beaconai.models.pyfunc import BeaconPyfunc, log_pyfunc
 from beaconai.models.registry import build_model
 from beaconai.models.seed import set_global_seed
 from beaconai.models.tuning import TrialResult, expand_grid, flatten_params, select_best
@@ -67,18 +66,17 @@ def check_data_scope(expected: int | None, on_disk: int | None) -> None:
         )
 
 
-PIP_REQUIREMENTS = ["numpy", "scipy", "pandas", "scikit-learn", "xgboost", "torch"]
-
-
-def configure_mlflow(cfg: MlflowConfig) -> None:
+def configure_mlflow(cfg: MlflowConfig, experiment: str | None = None) -> None:
+    """Point MLflow at the local store and select an experiment (default: cfg.experiment)."""
+    name = experiment or cfg.experiment
     db = project_path(cfg.tracking_db)
     db.parent.mkdir(parents=True, exist_ok=True)
     mlflow.set_tracking_uri(f"sqlite:///{db}")
-    if mlflow.get_experiment_by_name(cfg.experiment) is None:
+    if mlflow.get_experiment_by_name(name) is None:
         root = project_path(cfg.artifact_root)
         root.mkdir(parents=True, exist_ok=True)
-        mlflow.create_experiment(cfg.experiment, artifact_location=root.as_uri())
-    mlflow.set_experiment(cfg.experiment)
+        mlflow.create_experiment(name, artifact_location=root.as_uri())
+    mlflow.set_experiment(name)
 
 
 def load_wrapper(model_uri: str) -> ModelWrapper:
@@ -151,36 +149,46 @@ def run_trial(
             model.save(tmp_path / "wrapper")
             # Named columns give the logged model a feature-level input schema for serving.
             example = pd.DataFrame(val.X[:5].toarray().astype(np.float32), columns=feature_names)
-            info = mlflow.pyfunc.log_model(
-                name="model",
-                python_model=BeaconPyfunc(),
-                artifacts={ARTIFACT_KEY: str(tmp_path / "wrapper")},
-                pip_requirements=PIP_REQUIREMENTS,
-                signature=infer_signature(example, val_proba[:5]),
-                input_example=example,
-            )
+            model_uri = log_pyfunc(BeaconPyfunc(), tmp_path / "wrapper", example, val_proba[:5])
     return TrialResult(
-        name, params, run.info.run_id, info.model_uri, result.metrics, fit_seconds, latency
+        name, params, run.info.run_id, model_uri, result.metrics, fit_seconds, latency
     )
+
+
+def register_version(
+    model_uri: str,
+    cfg: MlflowConfig,
+    dev_sample: int | None,
+    tags: dict[str, str],
+    *,
+    raw: bool = False,
+) -> tuple[int, str]:
+    """Register a model version and move the matching alias.
+
+    Calibrated models move `champion` (full data) or `dev`; raw Phase 2 winners (`raw=True`)
+    move `raw-champion` or `raw-dev`, so retraining never replaces the calibrated champion.
+    """
+    mv = mlflow.register_model(model_uri, cfg.registered_model)
+    if raw:
+        alias = cfg.raw_champion_alias if dev_sample is None else cfg.raw_dev_alias
+    else:
+        alias = cfg.champion_alias if dev_sample is None else cfg.dev_alias
+    client = MlflowClient()
+    client.set_registered_model_alias(cfg.registered_model, alias, mv.version)
+    for key, value in {**tags, "dev_sample": str(dev_sample)}.items():
+        client.set_model_version_tag(cfg.registered_model, mv.version, key, value)
+    return int(mv.version), alias
 
 
 def register_champion(
     champion: TrialResult, cfg: MlflowConfig, metric: str, dev_sample: int | None, mode: str
 ) -> tuple[int, str]:
-    """Register the winner. Only full-data runs move the champion alias."""
-    mv = mlflow.register_model(champion.model_uri, cfg.registered_model)
-    alias = cfg.champion_alias if dev_sample is None else cfg.dev_alias
-    client = MlflowClient()
-    client.set_registered_model_alias(cfg.registered_model, alias, mv.version)
     tags = {
         "model_type": champion.model,
         f"val_{metric}": str(champion.val_metrics[metric]),
-        "dev_sample": str(dev_sample),
         "mode": mode,
     }
-    for key, value in tags.items():
-        client.set_model_version_tag(cfg.registered_model, mv.version, key, value)
-    return int(mv.version), alias
+    return register_version(champion.model_uri, cfg, dev_sample, tags, raw=True)
 
 
 def run_training(cfg: Config, *, winners_only: bool = False) -> dict[str, Any]:

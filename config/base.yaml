@@ -45,10 +45,13 @@ mlflow:
   artifact_root: mlruns/artifacts
   experiment: beaconai-phase2
   registered_model: beaconai-classifier
-  # Full-data runs move `champion`; dev-subsample runs move `dev`, so serving never picks up
-  # a model trained on the subsample by accident.
+  # `champion` is the calibrated model downstream phases load (moved only by full-data
+  # `make calibrate`); `dev` is its dev-subsample counterpart. Raw Phase 2 winners from
+  # `make train` use `raw-champion` / `raw-dev`, so retraining never moves `champion`.
   champion_alias: champion
   dev_alias: dev
+  raw_champion_alias: raw-champion
+  raw_dev_alias: raw-dev
 
 train:
   models: [logreg, xgboost, mlp]
@@ -90,3 +93,38 @@ eval:
   output_dir: reports
   top_confusions: 15
   lowest_recall: 10
+
+calibration:
+  models: [xgboost, logreg]
+  # none = raw probabilities, kept as a candidate so calibration has to earn its place.
+  methods: [none, temperature, isotonic]
+  # Validation is split per class: calibrators are fit on this share and every number is
+  # reported on the rest, so no calibrator is scored on the rows it was fit to.
+  fit_fraction: 0.5
+  ece_bins: 15
+  temperature_bounds: [0.05, 20.0]
+  # A (model, method) pair can be champion only if its held-out top-3 accuracy meets both
+  # floors. Isotonic calibration can change the ranking; temperature scaling cannot.
+  # The champion is the eligible pair with the lowest partial-evidence ECE.
+  top3_floor:
+    full: 0.99
+    # Set below both raw models on partial evidence (xgboost 0.713, logreg 0.767 on dev
+    # validation), so the floor only removes calibrations that damage the ranking.
+    partial: 0.65
+  experiment: beaconai-phase3
+  partial_evidence:
+    # Each patient keeps the initial evidence plus this many other random evidences.
+    extra_evidences: 3
+
+abstention:
+  # Abstain when the calibrated top-1 probability is below this (equal is answered).
+  # 0.84 is the smallest threshold whose answered partial-evidence patients reach 95% top-3
+  # accuracy (full data: answers 44% on partial evidence, 99% on full evidence). See
+  # docs/phase3_calibration.md.
+  threshold: 0.84
+  # The run suggests the smallest threshold whose answered patients reach this top-k accuracy.
+  target_accuracy: 0.95
+  # k: how many conditions a differential shows.
+  differential_size: 3
+  # Thresholds evaluated for the coverage vs accuracy curve (evenly spaced from 0 to 1).
+  curve_points: 101

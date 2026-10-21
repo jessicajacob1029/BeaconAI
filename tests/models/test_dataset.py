@@ -34,3 +34,32 @@ def test_feature_names_in_column_order(toy_processed: Path) -> None:
     from beaconai.models.dataset import load_feature_names
 
     assert load_feature_names(toy_processed) == [f"F_{i}" for i in range(TOY_FEATURES)]
+
+
+def test_subset_keeps_rows_aligned(toy_processed: Path) -> None:
+    from beaconai.models.dataset import subset
+
+    data = load_split(toy_processed, "train")
+    idx = np.array([4, 0, 7])
+    part = subset(data, idx)
+    assert part.n == 3
+    np.testing.assert_array_equal(part.y, data.y[idx])
+    np.testing.assert_array_equal(part.X.toarray(), data.X[idx].toarray())
+    assert part.ddx is not None and data.ddx is not None
+    np.testing.assert_array_equal(part.ddx.toarray(), data.ddx[idx].toarray())
+
+
+def test_load_meta_and_features(toy_processed: Path) -> None:
+    from beaconai.models.dataset import load_features, load_meta
+
+    meta = load_meta(toy_processed, "validate")
+    assert len(meta["initial_evidence"]) == TOY_ROWS["validate"]
+    assert meta["initial_evidence"][1] == "E_2"  # row 1 is class 1, which always has F_2
+    assert [f["evidence"] for f in load_features(toy_processed)][:2] == ["E_0", "E_1"]
+
+
+def test_load_meta_missing_says_run_make_data(tmp_path: Path) -> None:
+    from beaconai.models.dataset import load_meta
+
+    with pytest.raises(FileNotFoundError, match="make data"):
+        load_meta(tmp_path, "validate")

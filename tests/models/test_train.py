@@ -27,8 +27,8 @@ def test_run_training_logs_registers_and_summarises(tmp_path: Path) -> None:
     assert written == summary
 
     configure_mlflow(cfg.mlflow)
-    # A dev-subsample run moves the `dev` alias only; `champion` is reserved for full data.
-    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "dev")
+    # Raw (uncalibrated) Phase 2 winners use their own aliases; a dev run moves `raw-dev` only.
+    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "raw-dev")
     assert int(mv.version) == summary["registered"]["version"]
     assert mv.tags["dev_sample"] == "50000"
     runs = mlflow.search_runs(search_all_experiments=True)
@@ -91,17 +91,24 @@ def test_logged_model_serves_named_feature_frames(tmp_path: Path) -> None:
     )
 
 
-def test_full_data_run_moves_champion_alias(tmp_path: Path) -> None:
+def test_full_data_training_moves_raw_champion_not_champion(tmp_path: Path) -> None:
+    import pytest
+    from mlflow.exceptions import MlflowException
+
     cfg = make_config(tmp_path, dev_sample=None)
     write_toy_processed(tmp_path / "processed")
     summary = run_training(cfg)
     configure_mlflow(cfg.mlflow)
-    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "champion")
+    client = MlflowClient()
+    mv = client.get_model_version_by_alias("beaconai-classifier", "raw-champion")
     assert int(mv.version) == summary["registered"]["version"]
-    assert summary["registered"]["alias"] == "champion"
+    assert summary["registered"]["alias"] == "raw-champion"
+    # `champion` belongs to the calibrated model (Phase 3); raw training never sets it.
+    with pytest.raises(MlflowException):
+        client.get_model_version_by_alias("beaconai-classifier", "champion")
 
 
-def test_dev_run_does_not_move_champion(tmp_path: Path) -> None:
+def test_dev_training_does_not_move_raw_champion(tmp_path: Path) -> None:
     full = make_config(tmp_path, dev_sample=None)
     write_toy_processed(tmp_path / "processed")
     first = run_training(full)
@@ -113,10 +120,10 @@ def test_dev_run_does_not_move_champion(tmp_path: Path) -> None:
     second = run_training(dev)
     configure_mlflow(full.mlflow)
     client = MlflowClient()
-    champ = client.get_model_version_by_alias("beaconai-classifier", "champion")
-    assert int(champ.version) == first["registered"]["version"]
-    assert second["registered"]["alias"] == "dev"
-    dev_mv = client.get_model_version_by_alias("beaconai-classifier", "dev")
+    raw = client.get_model_version_by_alias("beaconai-classifier", "raw-champion")
+    assert int(raw.version) == first["registered"]["version"]
+    assert second["registered"]["alias"] == "raw-dev"
+    dev_mv = client.get_model_version_by_alias("beaconai-classifier", "raw-dev")
     assert int(dev_mv.version) == second["registered"]["version"]
 
 

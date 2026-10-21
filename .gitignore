@@ -35,3 +35,8 @@ CLAUDE.md
 CLAUDE.local.md
 ROADMAP.md
 .claude/
+
+# Dev-subsample report outputs (iteration only; full-data reports are committed)
+reports/*_dev.md
+reports/*_dev.json
+reports/figures/*_dev.png

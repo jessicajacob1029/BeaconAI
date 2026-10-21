@@ -6,7 +6,7 @@ AI clinical triage assistant: describe symptoms in plain language, get a ranked 
 
 ## Status
 
-Phase 2 (baseline models and evaluation) done. Next: calibration and abstention.
+Phase 3 (calibration and abstention) done. Next: explainability.
 
 ## Quickstart
 
@@ -46,12 +46,36 @@ make eval         # score the test split once, on the full dataset
 make mlflow       # MLflow UI on http://localhost:5000
 ```
 
-- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier`. Full-data runs move the `champion` alias; dev-subsample runs move only the `dev` alias.
+- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier` with alias `raw-champion` (`raw-dev` for the dev subsample). The `champion` alias is reserved for the calibrated model from `make calibrate`, which is what downstream phases load.
 - Training and evaluation check that the processed data on disk matches the expected scope (dev subsample or full) and refuse with the rebuild command if not.
 - The test split is scored once. `make eval` refuses to run on the dev subsample or a second time (`reports/test_eval_lock.json`).
 - Metrics: top-1/3/5 accuracy, macro F1, per-class recall, confusion matrix, and overlap with the DDXPlus reference differential (precision@k, raw recall@k, and normalized recall@k = hits / min(k, |differential|); normalized recall@3 is the headline).
 - Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final` and `BEACONAI_DEV_SAMPLE=null make eval`. Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)
 
 Results: `reports/model_comparison.md`. Analysis and model choice: `docs/phase2_analysis.md`.
+
+## Calibration and predictions
+
+```
+make calibrate   # calibrate on validation, pick the champion by partial-evidence ECE, write reports/calibration.md
+```
+
+- Temperature scaling and isotonic calibration are fit on half of validation and scored on the other half. The champion is the calibrated model with the lowest ECE on a partial-evidence version of validation (initial evidence plus 3 random others), subject to top-3 accuracy floors. Decision record: `docs/phase3_calibration.md`.
+- Every downstream component uses one interface:
+
+```python
+from beaconai.config import load_config
+from beaconai.models.calibrate import load_calibrated
+from beaconai.models.calibrated import PatientEvidence, build_feature_space
+from beaconai.models.train import configure_mlflow
+
+cfg = load_config()
+configure_mlflow(cfg.mlflow)  # local MLflow registry in mlruns/
+clf = load_calibrated("models:/beaconai-classifier@champion").with_encoder(build_feature_space(cfg))
+clf.predict_differential(PatientEvidence(evidence=["E_91", "E_55_@_V_14"], age=34, sex="F"))
+# -> Differential (top 3 conditions with probabilities) or Abstain (with a reason)
+```
+
+- It abstains when the top condition's calibrated probability is below `abstention.threshold` (0.84). Known limitation: the models read a question that was not asked as "no", so accuracy and calibration drop with partial evidence (see the report).
 
 Old code from the previous hospital management app is in `legacy/` and is not used.

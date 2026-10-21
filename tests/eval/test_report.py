@@ -1,3 +1,5 @@
+import unicodedata
+
 from beaconai.eval.report import ComparisonRow, ConfusionPair, render_comparison
 
 VAL = {
@@ -34,7 +36,7 @@ def test_report_contents() -> None:
     assert "![Confusion matrix](figures/confusion_matrix.png)" in md
     assert "Bronchitis" in md and "Pneumonia" in md
     assert "**xgboost**" in md  # champion called out
-    assert "\u2014" not in md  # no em dashes
+    assert "EM DASH" not in {unicodedata.name(ch, "") for ch in md}  # docs style: no em dashes
 
 
 def test_headline_ddx_metric_is_normalized_recall_at3() -> None:
