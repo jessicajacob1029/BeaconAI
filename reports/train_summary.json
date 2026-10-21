@@ -1,0 +1,100 @@
+{
+  "parent_run_id": "3dde76251f3f46ada9ea4352142c5374",
+  "dev_sample": null,
+  "mode": "winners",
+  "selection_metric": "top3_accuracy",
+  "tie_breakers": [
+    "top1_accuracy",
+    "macro_f1"
+  ],
+  "champion": "xgboost",
+  "registered": {
+    "name": "beaconai-classifier",
+    "version": 3
+  },
+  "models": {
+    "logreg": {
+      "run_id": "3cc05c69b07942708378f81f2c114377",
+      "model_uri": "models:/m-a85de6c9268b4b0a93b51e416f53fe7f",
+      "params": {
+        "max_iter": 500,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "C": 10.0
+      },
+      "val_metrics": {
+        "top1_accuracy": 0.9955756221309495,
+        "top3_accuracy": 1.0,
+        "top5_accuracy": 1.0,
+        "macro_f1": 0.9943416192524717,
+        "ddx_precision_at3": 0.647172223564468,
+        "ddx_recall_at3": 0.3295698838750995,
+        "ddx_recall_norm_at3": 0.7014023113473463,
+        "ddx_precision_at5": 0.5288988886204398,
+        "ddx_recall_at5": 0.4038161184674659,
+        "ddx_recall_norm_at5": 0.626174800676492
+      },
+      "fit_seconds": 14.325720415916294,
+      "latency_ms": 0.08233357220888138,
+      "n_trials": 1
+    },
+    "xgboost": {
+      "run_id": "0d0d1fe73b4a402789c7eb25ee6a35f2",
+      "model_uri": "models:/m-371b51be756c47a291fbdfa07a87b2be",
+      "params": {
+        "n_estimators": 400,
+        "early_stopping_rounds": 20,
+        "tree_method": "hist",
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "learning_rate": 0.1,
+        "max_depth": 4
+      },
+      "val_metrics": {
+        "top1_accuracy": 0.9972442014979463,
+        "top3_accuracy": 1.0,
+        "top5_accuracy": 1.0,
+        "macro_f1": 0.9966959891887398,
+        "ddx_precision_at3": 0.6418971973906741,
+        "ddx_recall_at3": 0.3160222496060389,
+        "ddx_recall_norm_at3": 0.6962392788113071,
+        "ddx_precision_at5": 0.5116528750906015,
+        "ddx_recall_at5": 0.3799866850487553,
+        "ddx_recall_norm_at5": 0.6032595182008537
+      },
+      "fit_seconds": 183.6514882077463,
+      "latency_ms": 0.9898748248815536,
+      "n_trials": 1
+    },
+    "mlp": {
+      "run_id": "64a746177c3b44ddbbd8dac917d789a5",
+      "model_uri": "models:/m-005c3c6ee4144bb29bb9f52544d247f6",
+      "params": {
+        "epochs": 30,
+        "batch_size": 512,
+        "patience": 3,
+        "weight_decay": 1e-05,
+        "dropout": 0.4,
+        "hidden_sizes": [
+          256
+        ],
+        "lr": 0.001
+      },
+      "val_metrics": {
+        "top1_accuracy": 0.9959229282435371,
+        "top3_accuracy": 1.0,
+        "top5_accuracy": 1.0,
+        "macro_f1": 0.9950886199039105,
+        "ddx_precision_at3": 0.6377194571957799,
+        "ddx_recall_at3": 0.3191733905483839,
+        "ddx_recall_norm_at3": 0.6914109688330514,
+        "ddx_precision_at5": 0.5247010147378595,
+        "ddx_recall_at5": 0.39996389330033194,
+        "ddx_recall_norm_at5": 0.6213667502214705
+      },
+      "fit_seconds": 53.96274475008249,
+      "latency_ms": 0.05350005812942982,
+      "n_trials": 1
+    }
+  }
+}

@@ -6,11 +6,15 @@ readme = "README.md"
 requires-python = "==3.11.*"
 dependencies = [
     "matplotlib>=3.8",
+    "mlflow>=3.1",
     "numpy>=1.26",
     "pandas>=2.2",
     "pydantic>=2.7",
     "pyyaml>=6.0",
+    "scikit-learn>=1.5",
     "scipy>=1.11",
+    "torch>=2.4",
+    "xgboost>=2.1",
 ]
 
 [dependency-groups]
@@ -31,6 +35,10 @@ packages = ["src/beaconai"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+filterwarnings = [
+    # Raised inside MLflow's SQLite store, not by project code.
+    "ignore:The ``noload`` loader strategy is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100
@@ -52,3 +60,11 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["beaconai"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

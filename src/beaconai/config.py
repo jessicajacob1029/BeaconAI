@@ -11,10 +11,10 @@ import os
 from collections.abc import Mapping
 from itertools import pairwise
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "base.yaml"
@@ -71,10 +71,105 @@ class EdaConfig(_StrictModel):
     output_dir: Path = Path("reports")
 
 
+ModelName = Literal["logreg", "xgboost", "mlp"]
+
+
+class ModelSpec(_StrictModel):
+    fixed: dict[str, Any] = Field(default_factory=dict)
+    grid: dict[str, list[Any]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_grid(self) -> ModelSpec:
+        empty = [k for k, v in self.grid.items() if not v]
+        if empty:
+            raise ValueError(f"grid values must be non-empty lists: {empty}")
+        both = sorted(set(self.fixed) & set(self.grid))
+        if both:
+            raise ValueError(f"keys are both fixed and tuned: {both}")
+        return self
+
+
+class ModelsConfig(_StrictModel):
+    logreg: ModelSpec
+    xgboost: ModelSpec
+    mlp: ModelSpec
+
+
+class TrainConfig(_StrictModel):
+    models: list[ModelName] = Field(min_length=1)
+    selection_metric: str = "top3_accuracy"
+    # Used in order only when the selection metric ties exactly.
+    tie_breakers: list[str] = Field(default_factory=lambda: ["top1_accuracy", "macro_f1"])
+    latency_calls: int = Field(default=100, gt=0)
+
+
+class MlflowConfig(_StrictModel):
+    tracking_db: Path
+    artifact_root: Path
+    experiment: str
+    registered_model: str
+    # Full-data runs move champion_alias; dev-subsample runs move dev_alias only.
+    champion_alias: str = "champion"
+    dev_alias: str = "dev"
+
+
+class EvalConfig(_StrictModel):
+    ks: list[int] = Field(min_length=1)
+    ddx_ks: list[int] = Field(default_factory=list)
+    output_dir: Path = Path("reports")
+    top_confusions: int = Field(default=15, gt=0)
+    lowest_recall: int = Field(default=10, gt=0)
+
+    @field_validator("ks", "ddx_ks")
+    @classmethod
+    def _positive(cls, ks: list[int]) -> list[int]:
+        if any(k < 1 for k in ks):
+            raise ValueError("k values must be >= 1")
+        return ks
+
+
 class Config(_StrictModel):
     seed: int = Field(default=42, ge=0)
     data: DataConfig
     eda: EdaConfig = EdaConfig()
+    # Training sections are optional so data-only configs stay valid.
+    mlflow: MlflowConfig | None = None
+    train: TrainConfig | None = None
+    models: ModelsConfig | None = None
+    eval: EvalConfig | None = None
+
+    @model_validator(mode="after")
+    def _selection_metric_is_computed(self) -> Config:
+        if self.train is None or self.eval is None:
+            return self
+        known = {f"top{k}_accuracy" for k in self.eval.ks} | {"macro_f1"}
+        for k in self.eval.ddx_ks:
+            known |= {f"ddx_precision_at{k}", f"ddx_recall_at{k}", f"ddx_recall_norm_at{k}"}
+        if self.train.selection_metric not in known:
+            raise ValueError(
+                f"train.selection_metric {self.train.selection_metric!r} is not computed; "
+                f"choose one of {sorted(known)}"
+            )
+        unknown = [m for m in self.train.tie_breakers if m not in known]
+        if unknown:
+            raise ValueError(f"train.tie_breakers {unknown} are not computed")
+        return self
+
+
+def project_path(path: Path) -> Path:
+    """Resolve a config path: relative paths are relative to the project root."""
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def require_training(
+    cfg: Config,
+) -> tuple[MlflowConfig, TrainConfig, ModelsConfig, EvalConfig]:
+    """Return the training sections, failing clearly if the config lacks any."""
+    missing = [n for n in ("mlflow", "train", "models", "eval") if getattr(cfg, n) is None]
+    if missing:
+        raise ValueError(f"config is missing sections needed for training: {missing}")
+    assert cfg.mlflow and cfg.train and cfg.models and cfg.eval
+    return cfg.mlflow, cfg.train, cfg.models, cfg.eval
 
 
 def _parse_env_value(value: str) -> Any:
