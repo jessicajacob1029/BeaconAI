@@ -108,9 +108,12 @@ class MlflowConfig(_StrictModel):
     artifact_root: Path
     experiment: str
     registered_model: str
-    # Full-data runs move champion_alias; dev-subsample runs move dev_alias only.
+    # Calibrated models (Phase 3): full-data runs move champion_alias, dev runs dev_alias.
     champion_alias: str = "champion"
     dev_alias: str = "dev"
+    # Raw Phase 2 winners get their own aliases, so retraining never moves `champion`.
+    raw_champion_alias: str = "raw-champion"
+    raw_dev_alias: str = "raw-dev"
 
 
 class EvalConfig(_StrictModel):

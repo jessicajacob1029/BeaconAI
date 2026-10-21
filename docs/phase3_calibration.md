@@ -4,10 +4,13 @@
 
 Numbers are from `reports/calibration.md` (full dataset, validation split, 2026-10-21). Calibrators were fit on 66,225 validation patients, and every number here comes from the other 66,223. The test split was not used.
 
+**Caveat:** the held-out half is not fully independent of the models. Validation was already used in Phase 2 to tune hyperparameters and for early stopping (XGBoost and the MLP), and the champion and threshold below are chosen on these same rows. The numbers are therefore somewhat optimistic, especially the full-evidence ECE and the accuracy at the chosen threshold. They must be confirmed on the test split in the final evaluation.
+
 ## Decision
 
 - **Champion: logistic regression + temperature scaling** (`beaconai-classifier` version 8, alias `champion`). This replaces the Phase 2 champion (raw XGBoost).
 - **Abstention threshold: 0.84.**
+- **Registry aliases.** Downstream phases load `beaconai-classifier@champion`, the calibrated model. Only a full-data `make calibrate` moves `champion` (`dev` for the dev subsample). Raw Phase 2 winners from `make train` now use `raw-champion` / `raw-dev`, so retraining can never silently replace the calibrated champion. In the local registry: `champion` = version 8, `raw-champion` = version 6 (raw XGBoost, full data), `dev` = 5, `raw-dev` = 4.
 
 ## How the champion was chosen
 
@@ -63,6 +66,8 @@ For raw XGBoost the drop is 29.3 points of top-3 accuracy and ECE rises to 0.556
 
 - **Fitting calibrators on partial evidence.** Calibrators here are fit on full-evidence validation rows, as specified. Fitting them on a partial-evidence version of the fit rows would target the setting we care about. That is worth testing after the retraining above, because both change the same probabilities.
 - **Near-zero items in a differential.** With complete evidence the champion is often near-certain, so the 2nd and 3rd items can have probabilities like 4e-12. Which conditions fill those slots then comes from class order, not from the model, but they still look like real alternatives. A display rule (for example, hide items below 1%) belongs with the API and UI work.
+
+- **Which model the final test evaluation scores.** `make eval` (Phase 2) compares the raw models listed in `reports/train_summary.json`, and its test lock has already been used. Scoring the calibrated champion on test needs a separate, one-time evaluation that also confirms the 0.84 threshold.
 
 ## Method
 

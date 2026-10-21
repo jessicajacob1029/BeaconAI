@@ -63,6 +63,11 @@ def render_calibration(
         "The test split is not used.",
         f"ECE: top-label, {ece_bins} equal-width bins. Lower is better.",
         "",
+        "Caveat: the held-out half is not fully independent of the models. Validation was "
+        "already used in Phase 2 to tune hyperparameters and for early stopping, and the "
+        "champion and threshold below are chosen on these same rows. Treat the numbers as "
+        "somewhat optimistic until they are confirmed on the test split in the final evaluation.",
+        "",
         f"Champion: **{champ['model']} + {champ['method']}**, the lowest partial-evidence ECE "
         "among (model, method) pairs whose held-out top-3 accuracy is at least "
         f"{floor['full']:.3f} on full evidence and at least {floor['partial']:.3f} on partial "

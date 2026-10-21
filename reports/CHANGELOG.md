@@ -48,4 +48,6 @@
   - XGBoost ECE: full 0.0003, partial 0.556 (top-1 on partial 0.282). Calibration does not fix it.
   - "Not asked is read as no": the champion loses 23.9 points of top-3 accuracy from full to partial evidence.
   - At threshold 0.84: 99.0% of full-evidence patients answered (top-3 1.000); 44.3% of partial-evidence patients answered (top-1 0.904, top-3 0.952).
+- Registry aliases split: `champion` / `dev` now mean the calibrated model and are moved only by `make calibrate`; raw winners from `make train` use `raw-champion` / `raw-dev`.
+- Caveat: validation was also used for Phase 2 tuning and early stopping, so these held-out numbers are somewhat optimistic until confirmed on test.
 - Decision record: `docs/phase3_calibration.md`.

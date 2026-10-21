@@ -134,3 +134,15 @@ def test_missing_train_summary_says_run_make_train(tmp_path: Path) -> None:
     write_toy_processed(tmp_path / "processed")
     with pytest.raises(FileNotFoundError, match="make train"):
         run_calibration(cfg)
+
+
+def test_retraining_after_calibration_keeps_calibrated_champion(tmp_path: Path) -> None:
+    cfg = _trained(tmp_path, None)
+    calibrated = run_calibration(cfg)
+    retrained = run_training(cfg, winners_only=True)
+    configure_mlflow(cfg.mlflow)
+    client = MlflowClient()
+    champ = client.get_model_version_by_alias("beaconai-classifier", "champion")
+    assert int(champ.version) == calibrated["registered"]["version"]
+    raw = client.get_model_version_by_alias("beaconai-classifier", "raw-champion")
+    assert int(raw.version) == retrained["registered"]["version"]

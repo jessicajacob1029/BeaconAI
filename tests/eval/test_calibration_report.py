@@ -96,3 +96,10 @@ def test_report_basics() -> None:
     assert "decision support, not diagnosis" in md
     assert "![xgboost reliability](figures/reliability_xgboost.png)" in md
     assert "EM DASH" not in {unicodedata.name(ch, "") for ch in md}  # docs style: no em dashes
+
+
+def test_report_states_held_out_caveat() -> None:
+    md = _render()
+    assert "not fully independent" in md
+    assert "early stopping" in md
+    assert "confirmed on the test split" in md

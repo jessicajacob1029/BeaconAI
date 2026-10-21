@@ -156,11 +156,23 @@ def run_trial(
 
 
 def register_version(
-    model_uri: str, cfg: MlflowConfig, dev_sample: int | None, tags: dict[str, str]
+    model_uri: str,
+    cfg: MlflowConfig,
+    dev_sample: int | None,
+    tags: dict[str, str],
+    *,
+    raw: bool = False,
 ) -> tuple[int, str]:
-    """Register a model version. Only full-data runs move the champion alias."""
+    """Register a model version and move the matching alias.
+
+    Calibrated models move `champion` (full data) or `dev`; raw Phase 2 winners (`raw=True`)
+    move `raw-champion` or `raw-dev`, so retraining never replaces the calibrated champion.
+    """
     mv = mlflow.register_model(model_uri, cfg.registered_model)
-    alias = cfg.champion_alias if dev_sample is None else cfg.dev_alias
+    if raw:
+        alias = cfg.raw_champion_alias if dev_sample is None else cfg.raw_dev_alias
+    else:
+        alias = cfg.champion_alias if dev_sample is None else cfg.dev_alias
     client = MlflowClient()
     client.set_registered_model_alias(cfg.registered_model, alias, mv.version)
     for key, value in {**tags, "dev_sample": str(dev_sample)}.items():
@@ -176,7 +188,7 @@ def register_champion(
         f"val_{metric}": str(champion.val_metrics[metric]),
         "mode": mode,
     }
-    return register_version(champion.model_uri, cfg, dev_sample, tags)
+    return register_version(champion.model_uri, cfg, dev_sample, tags, raw=True)
 
 
 def run_training(cfg: Config, *, winners_only: bool = False) -> dict[str, Any]:

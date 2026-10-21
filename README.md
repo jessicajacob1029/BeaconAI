@@ -46,7 +46,7 @@ make eval         # score the test split once, on the full dataset
 make mlflow       # MLflow UI on http://localhost:5000
 ```
 
-- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier`. Full-data runs move the `champion` alias; dev-subsample runs move only the `dev` alias.
+- Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier` with alias `raw-champion` (`raw-dev` for the dev subsample). The `champion` alias is reserved for the calibrated model from `make calibrate`, which is what downstream phases load.
 - Training and evaluation check that the processed data on disk matches the expected scope (dev subsample or full) and refuse with the rebuild command if not.
 - The test split is scored once. `make eval` refuses to run on the dev subsample or a second time (`reports/test_eval_lock.json`).
 - Metrics: top-1/3/5 accuracy, macro F1, per-class recall, confusion matrix, and overlap with the DDXPlus reference differential (precision@k, raw recall@k, and normalized recall@k = hits / min(k, |differential|); normalized recall@3 is the headline).

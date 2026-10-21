@@ -45,10 +45,13 @@ mlflow:
   artifact_root: mlruns/artifacts
   experiment: beaconai-phase2
   registered_model: beaconai-classifier
-  # Full-data runs move `champion`; dev-subsample runs move `dev`, so serving never picks up
-  # a model trained on the subsample by accident.
+  # `champion` is the calibrated model downstream phases load (moved only by full-data
+  # `make calibrate`); `dev` is its dev-subsample counterpart. Raw Phase 2 winners from
+  # `make train` use `raw-champion` / `raw-dev`, so retraining never moves `champion`.
   champion_alias: champion
   dev_alias: dev
+  raw_champion_alias: raw-champion
+  raw_dev_alias: raw-dev
 
 train:
   models: [logreg, xgboost, mlp]
