@@ -135,6 +135,10 @@ def run_trial(
         latency = measure_latency_ms(model, val, train_cfg.latency_calls)
         mlflow.log_metrics({f"val_{k}": v for k, v in result.metrics.items()})
         mlflow.log_metrics({"fit_seconds": fit_seconds, "latency_ms": latency})
+        # Where early stopping landed (XGBoost round, MLP epoch), when the model has one.
+        for attr in ("best_iteration", "epochs_trained"):
+            if hasattr(model, attr):
+                mlflow.log_metric(attr, getattr(model, attr))
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             figure = plot_confusion(

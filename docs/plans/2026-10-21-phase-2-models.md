@@ -2125,7 +2125,7 @@ def test_report_contents() -> None:
     assert "![Confusion matrix](figures/confusion_matrix.png)" in md
     assert "Bronchitis" in md and "Pneumonia" in md
     assert "**xgboost**" in md  # champion called out
-    assert "—" not in md  # no em dashes
+    assert "\u2014" not in md  # no em dashes
 
 
 def test_validation_only_report_says_test_pending() -> None:

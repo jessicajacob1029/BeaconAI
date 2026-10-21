@@ -36,6 +36,11 @@ def test_run_training_logs_registers_and_summarises(tmp_path: Path) -> None:
     child = runs[runs["tags.model_type"] == "logreg"].iloc[0]
     assert not np.isnan(child["metrics.val_top3_accuracy"])
     assert not np.isnan(child["metrics.val_ddx_recall_norm_at3"])
+    # Where early stopping landed, so you can see whether the round or epoch budget was hit.
+    xgb_run = runs[runs["tags.model_type"] == "xgboost"].iloc[0]
+    mlp_run = runs[runs["tags.model_type"] == "mlp"].iloc[0]
+    assert 0 <= xgb_run["metrics.best_iteration"] <= 9  # n_estimators is 10 in make_config
+    assert 1 <= mlp_run["metrics.epochs_trained"] <= 3  # epochs is 3 in make_config
     artifacts = {a.path for a in MlflowClient().list_artifacts(child["run_id"])}
     assert "val_confusion.png" in artifacts
 
