@@ -105,8 +105,9 @@ calibration:
   # The champion is the eligible pair with the lowest partial-evidence ECE.
   top3_floor:
     full: 0.99
-    # Provisional; set from the dev run (raw models) and documented in docs/phase3_calibration.md.
-    partial: 0.0
+    # Set below both raw models on partial evidence (xgboost 0.713, logreg 0.767 on dev
+    # validation), so the floor only removes calibrations that damage the ranking.
+    partial: 0.65
   experiment: beaconai-phase3
   partial_evidence:
     # Each patient keeps the initial evidence plus this many other random evidences.
