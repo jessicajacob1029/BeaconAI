@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets
+.env
+
+# Data and artifacts (data is tracked by DVC, not git)
+data/**
+!data/**/
+!data/**/.gitkeep
+mlruns/
+mlartifacts/
+chroma/
+
+# Legacy binaries stay on disk but out of git
+legacy/**/*.db
+legacy/**/*.pkl
+legacy/**/*.JPG
+legacy/**/*.jpg
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# local dev notes
+CLAUDE.md
+CLAUDE.local.md
+ROADMAP.md
+.claude/

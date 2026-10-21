@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <h2>Welcome, {{ username }}</h2>
+        <button onclick="window.location.href='/book_appointment'">Book Appointment</button>
+        <button onclick="window.location.href='/view_bookings'">View Bookings</button>
+        <button onclick="window.location.href='/view_pharmacy'">View Pharmacy Orders</button>
+    </div>
+</body>
+</html>

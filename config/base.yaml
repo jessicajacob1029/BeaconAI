@@ -1,0 +1,12 @@
+# BeaconAI base configuration.
+# All tunable values live here, not in code.
+
+seed: 42
+
+data:
+  # Develop on a fixed subsample of patients. Set to null to use the full dataset.
+  dev_sample: 50000
+  paths:
+    raw: data/raw
+    interim: data/interim
+    processed: data/processed
