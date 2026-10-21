@@ -128,6 +128,46 @@ class EvalConfig(_StrictModel):
         return ks
 
 
+CalibrationMethod = Literal["none", "temperature", "isotonic"]
+
+
+class PartialEvidenceConfig(_StrictModel):
+    extra_evidences: int = Field(default=3, ge=0)
+
+
+class Top3Floor(_StrictModel):
+    """Minimum held-out top-3 accuracy, on full and on partial evidence."""
+
+    full: float = Field(ge=0, le=1)
+    partial: float = Field(ge=0, le=1)
+
+
+class CalibrationConfig(_StrictModel):
+    models: list[ModelName] = Field(min_length=1)
+    methods: list[CalibrationMethod] = Field(min_length=1)
+    fit_fraction: float = Field(default=0.5, gt=0, lt=1)
+    ece_bins: int = Field(default=15, ge=2)
+    temperature_bounds: tuple[float, float] = (0.05, 20.0)
+    top3_floor: Top3Floor
+    experiment: str | None = None
+    partial_evidence: PartialEvidenceConfig = PartialEvidenceConfig()
+
+    @field_validator("temperature_bounds")
+    @classmethod
+    def _bounds_increasing(cls, bounds: tuple[float, float]) -> tuple[float, float]:
+        low, high = bounds
+        if not 0 < low < high:
+            raise ValueError("temperature_bounds must satisfy 0 < low < high")
+        return bounds
+
+
+class AbstentionConfig(_StrictModel):
+    threshold: float = Field(ge=0, le=1)
+    target_accuracy: float = Field(default=0.95, gt=0, le=1)
+    differential_size: int = Field(default=3, ge=1)
+    curve_points: int = Field(default=101, ge=2)
+
+
 class Config(_StrictModel):
     seed: int = Field(default=42, ge=0)
     data: DataConfig
@@ -137,6 +177,8 @@ class Config(_StrictModel):
     train: TrainConfig | None = None
     models: ModelsConfig | None = None
     eval: EvalConfig | None = None
+    calibration: CalibrationConfig | None = None
+    abstention: AbstentionConfig | None = None
 
     @model_validator(mode="after")
     def _selection_metric_is_computed(self) -> Config:
@@ -215,3 +257,12 @@ def load_config(
         raw = yaml.safe_load(f) or {}
     raw = apply_env_overrides(raw, os.environ if env is None else env)
     return Config.model_validate(raw)
+
+
+def require_calibration(cfg: Config) -> tuple[CalibrationConfig, AbstentionConfig]:
+    """Return the calibration sections, failing clearly if the config lacks any."""
+    missing = [n for n in ("calibration", "abstention") if getattr(cfg, n) is None]
+    if missing:
+        raise ValueError(f"config is missing sections needed for calibration: {missing}")
+    assert cfg.calibration and cfg.abstention
+    return cfg.calibration, cfg.abstention

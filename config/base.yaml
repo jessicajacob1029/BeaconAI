@@ -90,3 +90,35 @@ eval:
   output_dir: reports
   top_confusions: 15
   lowest_recall: 10
+
+calibration:
+  models: [xgboost, logreg]
+  # none = raw probabilities, kept as a candidate so calibration has to earn its place.
+  methods: [none, temperature, isotonic]
+  # Validation is split per class: calibrators are fit on this share and every number is
+  # reported on the rest, so no calibrator is scored on the rows it was fit to.
+  fit_fraction: 0.5
+  ece_bins: 15
+  temperature_bounds: [0.05, 20.0]
+  # A (model, method) pair can be champion only if its held-out top-3 accuracy meets both
+  # floors. Isotonic calibration can change the ranking; temperature scaling cannot.
+  # The champion is the eligible pair with the lowest partial-evidence ECE.
+  top3_floor:
+    full: 0.99
+    # Provisional; set from the dev run (raw models) and documented in docs/phase3_calibration.md.
+    partial: 0.0
+  experiment: beaconai-phase3
+  partial_evidence:
+    # Each patient keeps the initial evidence plus this many other random evidences.
+    extra_evidences: 3
+
+abstention:
+  # Abstain when the calibrated top-1 probability is below this (equal is answered).
+  # Chosen from the partial-evidence coverage vs accuracy curve; see docs/phase3_calibration.md.
+  threshold: 0.5
+  # The run suggests the smallest threshold whose answered patients reach this top-k accuracy.
+  target_accuracy: 0.95
+  # k: how many conditions a differential shows.
+  differential_size: 3
+  # Thresholds evaluated for the coverage vs accuracy curve (evenly spaced from 0 to 1).
+  curve_points: 101
