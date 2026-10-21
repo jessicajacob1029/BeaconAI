@@ -1,4 +1,4 @@
-.PHONY: help setup data eda train train-final eval test lint format serve ui mlflow
+.PHONY: help setup data eda train train-final eval eval-val test lint format serve ui mlflow
 
 # macOS: torch and XGBoost must share torch's OpenMP runtime (see src/beaconai/models/openmp.py).
 ifeq ($(shell uname -s),Darwin)
@@ -35,8 +35,11 @@ train:  ## Grid-search all models on validation, log to MLflow, register the bes
 train-final:  ## Retrain only the winning params from the last grid search (full data)
 	uv run python -m beaconai.models.train --winners-only
 
-eval:  ## Metrics + plots into reports/ (Phase 2)
-	@echo "make eval: not implemented until Phase 2" && exit 1
+eval:  ## Score test ONCE on full data and write reports/model_comparison.md
+	uv run python -m beaconai.eval.evaluate --split test
+
+eval-val:  ## Validation-only report, safe to run while iterating
+	uv run python -m beaconai.eval.evaluate --split validate
 
 serve:  ## FastAPI on :8000 (Phase 5)
 	@echo "make serve: not implemented until Phase 5" && exit 1
