@@ -20,3 +20,49 @@ stages:
       md5: 67054bbc91038575bbde2172d9ff4462.dir
       size: 846763465
       nfiles: 5
+  preprocess:
+    cmd: uv run python -m beaconai.data.preprocess
+    deps:
+    - path: data/raw/ddxplus
+      hash: md5
+      md5: 67054bbc91038575bbde2172d9ff4462.dir
+      size: 846763465
+      nfiles: 5
+    - path: src/beaconai/data/encode.py
+      hash: md5
+      md5: d4a2488ddebbacf7cad69dae51f9b12c
+      size: 9417
+    - path: src/beaconai/data/preprocess.py
+      hash: md5
+      md5: 8faa9d146953cf58b70107ae243cff55
+      size: 6281
+    - path: src/beaconai/data/sample.py
+      hash: md5
+      md5: 941ba5e199950b5667952fc334272671
+      size: 1126
+    - path: src/beaconai/data/schema.py
+      hash: md5
+      md5: 521d7addc2ba935597cfa680df518747
+      size: 5110
+    params:
+      config/base.yaml:
+        data.dev_sample: 50000
+        data.encoding:
+          age_bins:
+          - 0
+          - 1
+          - 5
+          - 15
+          - 30
+          - 45
+          - 60
+          - 75
+          age_scale: 110
+          scale_max: 10
+        seed: 42
+    outs:
+    - path: data/processed/ddxplus
+      hash: md5
+      md5: f7cdf7bfa664e5cb31fa175a2f826af9.dir
+      size: 9274144
+      nfiles: 15
