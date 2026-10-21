@@ -135,7 +135,8 @@ class CalibratedClassifier:
         try:
             values = self.encoder.encode(evidence.evidence, evidence.age, evidence.sex)
         except KeyError as err:
-            raise ValueError(f"Unknown evidence code: {err.args[0]}") from err
+            # The catalog's KeyError already reads "Unknown evidence code: 'E_...'".
+            raise ValueError(err.args[0]) from err
         cols = sorted(values)
         return sparse.csr_matrix(
             (

@@ -73,8 +73,9 @@ def test_predict_differential_from_evidence_codes() -> None:
 
 
 def test_unknown_evidence_code_is_a_clear_error() -> None:
-    with pytest.raises(ValueError, match="E_999"):
+    with pytest.raises(ValueError, match="E_999") as err:
         _classifier().predict_differential(PatientEvidence(evidence=["E_999"], age=30, sex="M"))
+    assert str(err.value).lower().count("unknown") == 1  # one clear message, not repeated
 
 
 def test_patient_evidence_validation() -> None:
