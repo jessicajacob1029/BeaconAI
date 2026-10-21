@@ -17,6 +17,12 @@ seed: 7
 data:
   dev_sample: 100
   paths: {raw: r, interim: i, processed: p}
+  source:
+    figshare_article_id: 1
+    doi: 10.0/x
+    files: [a.json]
+  encoding:
+    age_bins: [0, 18, 65]
 """
 
 
@@ -50,6 +56,8 @@ def test_missing_file_raises(tmp_path: Path) -> None:
         VALID_YAML.replace("dev_sample: 100", "dev_sample: -5"),  # must be positive
         VALID_YAML.replace("seed: 7", "seed: not-a-number"),  # wrong type
         VALID_YAML + "typo_key: 1\n",  # unknown key
+        VALID_YAML.replace("[0, 18, 65]", "[5, 18, 65]"),  # bins must start at 0
+        VALID_YAML.replace("[0, 18, 65]", "[0, 65, 18]"),  # bins must increase
         "seed: 1\n",  # missing data section
     ],
 )

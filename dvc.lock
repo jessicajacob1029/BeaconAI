@@ -1,0 +1,22 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: uv run python -m beaconai.data.download
+    params:
+      config/base.yaml:
+        data.source:
+          figshare_article_id: 20043374
+          doi: 10.6084/m9.figshare.20043374
+          files:
+          - release_evidences.json
+          - release_conditions.json
+          - release_train_patients.zip
+          - release_validate_patients.zip
+          - release_test_patients.zip
+          timeout_seconds: 60
+    outs:
+    - path: data/raw/ddxplus
+      hash: md5
+      md5: 67054bbc91038575bbde2172d9ff4462.dir
+      size: 846763465
+      nfiles: 5

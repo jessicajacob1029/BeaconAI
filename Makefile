@@ -1,4 +1,4 @@
-.PHONY: help setup data train eval test lint format serve ui mlflow
+.PHONY: help setup data eda train eval test lint format serve ui mlflow
 
 help:  ## List available commands
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-8s %s\n", $$1, $$2}'
@@ -18,8 +18,11 @@ format:  ## Auto-fix lint issues and format code
 test:  ## Run the test suite
 	uv run pytest
 
-data:  ## Download + preprocess DDXPlus (Phase 1)
-	@echo "make data: not implemented until Phase 1" && exit 1
+data:  ## Download + preprocess DDXPlus (dvc repro)
+	uv run dvc repro
+
+eda:  ## Save EDA plots for processed data into reports/
+	uv run python -m beaconai.data.eda
 
 train:  ## Train models, log to MLflow (Phase 2)
 	@echo "make train: not implemented until Phase 2" && exit 1

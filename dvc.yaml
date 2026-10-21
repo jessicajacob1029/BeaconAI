@@ -1,0 +1,27 @@
+stages:
+  download:
+    # Re-runs only when the source definition changes. persist keeps files placed
+    # here by hand (manual download) from being deleted before the stage runs.
+    cmd: uv run python -m beaconai.data.download
+    params:
+      - config/base.yaml:
+          - data.source
+    outs:
+      - data/raw/ddxplus:
+          persist: true
+
+  preprocess:
+    cmd: uv run python -m beaconai.data.preprocess
+    deps:
+      - data/raw/ddxplus
+      - src/beaconai/data/schema.py
+      - src/beaconai/data/encode.py
+      - src/beaconai/data/sample.py
+      - src/beaconai/data/preprocess.py
+    params:
+      - config/base.yaml:
+          - seed
+          - data.dev_sample
+          - data.encoding
+    outs:
+      - data/processed/ddxplus

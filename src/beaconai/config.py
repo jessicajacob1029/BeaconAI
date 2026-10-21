@@ -9,11 +9,12 @@ from __future__ import annotations
 import copy
 import os
 from collections.abc import Mapping
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "base.yaml"
@@ -36,14 +37,44 @@ class DataPaths(_StrictModel):
     processed: Path
 
 
+class DataSource(_StrictModel):
+    figshare_article_id: int = Field(gt=0)
+    doi: str
+    files: list[str] = Field(min_length=1)
+    timeout_seconds: float = Field(default=60, gt=0)
+
+
+class EncodingConfig(_StrictModel):
+    age_bins: list[int] = Field(min_length=1)
+    age_scale: float = Field(default=110, gt=0)
+    scale_max: float = Field(default=10, gt=0)
+
+    @field_validator("age_bins")
+    @classmethod
+    def _bins_start_at_zero_and_increase(cls, bins: list[int]) -> list[int]:
+        if bins[0] != 0:
+            raise ValueError("age_bins must start at 0")
+        if any(b <= a for a, b in pairwise(bins)):
+            raise ValueError("age_bins must be strictly increasing")
+        return bins
+
+
 class DataConfig(_StrictModel):
     dev_sample: int | None = Field(default=None, gt=0)
     paths: DataPaths
+    source: DataSource
+    encoding: EncodingConfig
+
+
+class EdaConfig(_StrictModel):
+    split: str = "train"
+    output_dir: Path = Path("reports")
 
 
 class Config(_StrictModel):
     seed: int = Field(default=42, ge=0)
     data: DataConfig
+    eda: EdaConfig = EdaConfig()
 
 
 def _parse_env_value(value: str) -> Any:

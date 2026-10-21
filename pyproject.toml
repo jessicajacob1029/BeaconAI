@@ -5,12 +5,17 @@ description = "AI clinical triage assistant (decision support, not diagnosis). T
 readme = "README.md"
 requires-python = "==3.11.*"
 dependencies = [
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+    "pandas>=2.2",
     "pydantic>=2.7",
     "pyyaml>=6.0",
+    "scipy>=1.11",
 ]
 
 [dependency-groups]
 dev = [
+    "dvc>=3.50",
     "pre-commit>=3.7",
     "pytest>=8.2",
     "ruff>=0.6",

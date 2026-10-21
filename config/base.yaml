@@ -4,9 +4,37 @@
 seed: 42
 
 data:
-  # Develop on a fixed subsample of patients. Set to null to use the full dataset.
+  # Develop on a fixed subsample of patients. Each split (train/validate/test) is
+  # capped at this many rows. Set to null to use the full dataset.
   dev_sample: 50000
   paths:
     raw: data/raw
     interim: data/interim
     processed: data/processed
+
+  # Official DDXPlus release (Mila, CC BY 4.0), hosted on Figshare.
+  # Download links and checksums are read from the Figshare API at runtime.
+  source:
+    figshare_article_id: 20043374
+    doi: 10.6084/m9.figshare.20043374
+    files:
+      - release_evidences.json
+      - release_conditions.json
+      - release_train_patients.zip
+      - release_validate_patients.zip
+      - release_test_patients.zip
+    timeout_seconds: 60
+
+  encoding:
+    # Age bucket lower edges (years). Each bucket runs up to the next edge minus one;
+    # the last bucket is open-ended.
+    age_bins: [0, 1, 5, 15, 30, 45, 60, 75]
+    # Age is also kept as one numeric column: age / age_scale, clipped to [0, 1].
+    age_scale: 110
+    # 0-10 scale evidences are one numeric column each: value / scale_max.
+    scale_max: 10
+
+eda:
+  # Plots are drawn from this processed split.
+  split: train
+  output_dir: reports
