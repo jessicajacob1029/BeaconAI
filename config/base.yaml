@@ -126,16 +126,20 @@ calibration:
 
 abstention:
   # Abstain when the calibrated top-1 probability is below this (equal is answered).
-  # 0.84 is the smallest threshold whose answered partial-evidence patients reach 95% top-3
-  # accuracy (full data: answers 44% on partial evidence, 99% on full evidence). See
-  # docs/phase3_calibration.md.
-  threshold: 0.84
+  # Phase 3b: 0.60 is the smallest threshold whose answered patients who know only the initial
+  # evidence reach 95% top-3 accuracy (full-data validation). With dropout-trained models the
+  # initial-plus-3 set reaches 95% at any threshold, so the threshold only matters for the first
+  # turn. See docs/phase3b_dropout.md.
+  threshold: 0.60
   # The run suggests the smallest threshold whose answered patients reach this top-k accuracy.
   target_accuracy: 0.95
   # k: how many conditions a differential shows.
   differential_size: 3
   # Thresholds evaluated for the coverage vs accuracy curve (evenly spaced from 0 to 1).
   curve_points: 101
+  # Compute the suggested threshold on patients who know only the initial evidence plus this
+  # many others (the hardest case the threshold has to protect).
+  suggest_on_extra: 0
 
 dropout:
   # Retrain these Phase 2 winners (same hyperparameters) on rows with evidences dropped.

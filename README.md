@@ -6,7 +6,7 @@ AI clinical triage assistant: describe symptoms in plain language, get a ranked 
 
 ## Status
 
-Phase 3 (calibration and abstention) done. Next: explainability.
+Phase 3b (evidence dropout, partial-evidence calibration, final test evaluation) done. Next: explainability.
 
 ## Quickstart
 
@@ -40,17 +40,16 @@ Three classifiers share one wrapper (`fit`, `predict_proba`, `save`, `load`): mu
 
 ```
 make train        # grid search on the validation split, every trial logged to MLflow
-make eval-val     # validation-only reports/model_comparison_val.md, safe while iterating
+make eval-val     # compare the Phase 2 models on validation (reports/model_comparison_val.md)
 make train-final  # retrain only the winning settings (used for the full-data run)
-make eval         # score the test split once, on the full dataset
 make mlflow       # MLflow UI on http://localhost:5000
 ```
 
 - Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier` with alias `raw-champion` (`raw-dev` for the dev subsample). The `champion` alias is reserved for the calibrated model from `make calibrate`, which is what downstream phases load.
 - Training and evaluation check that the processed data on disk matches the expected scope (dev subsample or full) and refuse with the rebuild command if not.
-- The test split is scored once. `make eval` refuses to run on the dev subsample or a second time (`reports/test_eval_lock.json`).
+- The Phase 2 commands never touch the test split. The only test evaluation is `make eval` (see below).
 - Metrics: top-1/3/5 accuracy, macro F1, per-class recall, confusion matrix, and overlap with the DDXPlus reference differential (precision@k, raw recall@k, and normalized recall@k = hits / min(k, |differential|); normalized recall@3 is the headline).
-- Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final` and `BEACONAI_DEV_SAMPLE=null make eval`. Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)
+- Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final`, `make train-dropout` and `make calibrate` (each with `BEACONAI_DEV_SAMPLE=null`). Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)
 
 Results: `reports/model_comparison.md`. Analysis and model choice: `docs/phase2_analysis.md`.
 
@@ -76,6 +75,17 @@ clf.predict_differential(PatientEvidence(evidence=["E_91", "E_55_@_V_14"], age=3
 # -> Differential (top 3 conditions with probabilities) or Abstain (with a reason)
 ```
 
-- It abstains when the top condition's calibrated probability is below `abstention.threshold` (0.84). Known limitation: the models read a question that was not asked as "no", so accuracy and calibration drop with partial evidence (see the report).
+- It abstains when the top condition's calibrated probability is below `abstention.threshold` (0.60, chosen so that patients who give only their first symptom are answered at 95% top-3 accuracy).
+
+## Evidence dropout and the final evaluation (Phase 3b)
+
+```
+make train-dropout   # retrain logistic regression and XGBoost with random evidence dropout
+make calibrate       # calibrate plain and dropout models, on full and on partial-evidence rows
+make eval            # score the calibrated champion on the test split, once (full data only)
+```
+
+- Dropout fixes the Phase 3 limitation that an unasked question was read as "no": with the initial evidence plus 3 others, top-3 accuracy rises from 0.761 to 0.983. Decision record: `docs/phase3b_dropout.md`.
+- `make eval` scores only `beaconai-classifier@champion` and refuses a raw model, a dev-subsample model, or a second run. Each evaluation name has its own lock in `reports/test_locks/`. Test results: `reports/final_evaluation.md`. Any classifier change after that is validated on validation data only.
 
 Old code from the previous hospital management app is in `legacy/` and is not used.

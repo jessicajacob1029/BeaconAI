@@ -51,3 +51,15 @@
 - Registry aliases split: `champion` / `dev` now mean the calibrated model and are moved only by `make calibrate`; raw winners from `make train` use `raw-champion` / `raw-dev`.
 - Caveat: validation was also used for Phase 2 tuning and early stopping, so these held-out numbers are somewhat optimistic until confirmed on test.
 - Decision record: `docs/phase3_calibration.md`.
+
+## Phase 3b: Evidence dropout, partial-evidence calibration, final test evaluation (2026-10-22)
+
+- Logistic regression and XGBoost retrained with random evidence dropout. Each training patient is kept and also added once with evidences dropped. Each copied row draws a dropout rate from 0.5 to 0.95, and the initial evidence, age and sex are always kept.
+- Calibrators can now be fit on partial-evidence rows. 20 candidates (plain and dropout models × full and partial calibration rows × method), same selection rule as Phase 3.
+- Champion: **logistic regression + dropout + isotonic calibration fit on partial rows** (`beaconai-classifier` version 13, alias `champion`).
+- New evidence-count curve in `reports/calibration.md`: top-3 and ECE with the initial evidence plus 0 to 12 others, Phase 3 vs 3b champion.
+- Abstention threshold 0.60: the 95% top-3 rule is now applied to patients who give only the initial evidence (`abstention.suggest_on_extra: 0`).
+- `make eval` is now the one-time test evaluation of the calibrated champion only, locked per evaluation name (`reports/test_locks/classifier_final.json`). Phase 2's evaluator no longer touches test.
+- Metrics (validation held-out half, initial + 3 evidences): top-3 0.761 to 0.983, top-1 0.609 to 0.898, ECE 0.082 to 0.0027. Full evidence: top-3 1.000, ECE 0.0009. Initial evidence only: top-3 0.188 to 0.585.
+- **Test (scored once, 134,529 patients):** full evidence top-1 0.995, top-3 1.000, ECE 0.0010; initial + 3 evidences top-1 0.899, top-3 0.984, ECE 0.0028; at threshold 0.60, 89.6% of partial-evidence patients answered with top-3 0.999.
+- Decision record: `docs/phase3b_dropout.md`.

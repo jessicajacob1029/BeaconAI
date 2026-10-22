@@ -1,0 +1,57 @@
+{
+  "evaluation": "classifier_final",
+  "registered": {
+    "name": "beaconai-classifier",
+    "version": 13,
+    "alias": "champion"
+  },
+  "champion": {
+    "model": "logreg+dropout",
+    "method": "isotonic",
+    "fit_on": "partial"
+  },
+  "n_test": 134529,
+  "threshold": 0.6,
+  "metrics": {
+    "full": {
+      "top1_accuracy": 0.995012227846784,
+      "top3_accuracy": 0.99999256665849,
+      "top5_accuracy": 0.99999256665849,
+      "macro_f1": 0.9935133249687601,
+      "ddx_precision_at3": 0.4746510665606176,
+      "ddx_recall_at3": 0.2457334228399392,
+      "ddx_recall_norm_at3": 0.5271676243288311,
+      "ddx_precision_at5": 0.31133658913691475,
+      "ddx_recall_at5": 0.26095706528622536,
+      "ddx_recall_norm_at5": 0.39370792418982775,
+      "ece": 0.0010257755134924498,
+      "nll": 0.01235236821114348
+    },
+    "partial": {
+      "top1_accuracy": 0.8992707891978681,
+      "top3_accuracy": 0.9836466486779802,
+      "top5_accuracy": 0.9931761924938117,
+      "macro_f1": 0.9050371920591533,
+      "ddx_precision_at3": 0.5092061934601462,
+      "ddx_recall_at3": 0.26119345954980766,
+      "ddx_recall_norm_at3": 0.5615282454588477,
+      "ddx_precision_at5": 0.3517635602732496,
+      "ddx_recall_at5": 0.28504549722109435,
+      "ddx_recall_norm_at5": 0.4357237720739271,
+      "ece": 0.002753094807319897,
+      "nll": 0.24927058427983412
+    }
+  },
+  "abstention": {
+    "full": {
+      "coverage": 0.9995093994603395,
+      "top1_accuracy": 0.9951510824539093,
+      "topk_accuracy": 0.9999925630098986
+    },
+    "partial": {
+      "coverage": 0.895858885444774,
+      "top1_accuracy": 0.9552933562342867,
+      "topk_accuracy": 0.998664111053029
+    }
+  }
+}
