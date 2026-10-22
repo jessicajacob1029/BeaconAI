@@ -34,3 +34,14 @@ class LogRegModel(ModelWrapper):
     def _load(self, path: Path) -> None:
         # joblib is pickle: only files this project wrote (local MLflow store) are loaded.
         self._clf = joblib.load(path / MODEL_FILE)
+
+    def linear_parameters(self) -> tuple[np.ndarray, np.ndarray]:
+        """(W, b) with logits = W @ x + b and probabilities = softmax(logits), in label order."""
+        classes = np.asarray(self._clf.classes_)
+        if len(classes) != self.n_classes:
+            missing = sorted(set(range(self.n_classes)) - set(classes.tolist()))
+            raise ValueError(f"classes {missing} were missing in training; no logits for them")
+        order = np.argsort(classes)
+        W = self._clf.coef_[order].astype(np.float64)
+        b = self._clf.intercept_[order].astype(np.float64)
+        return W, b
