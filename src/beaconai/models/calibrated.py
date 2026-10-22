@@ -133,6 +133,12 @@ class CalibratedClassifier:
         """Calibrated probabilities, shape (n_patients, n_classes)."""
         return self.calibrator.transform(self.model.predict_proba(X))
 
+    def predict_raw_and_calibrated(self, X: Matrix) -> tuple[np.ndarray, np.ndarray]:
+        """(calibrated, raw) probabilities. Use raw as `tie_break` when ranking, so metrics
+        follow the same order as served predictions."""
+        raw = self.model.predict_proba(X)
+        return self.calibrator.transform(raw), raw
+
     def predictions(self, X: Matrix) -> list[Prediction]:
         raw = self.model.predict_proba(X)
         calibrated = self.calibrator.transform(raw)

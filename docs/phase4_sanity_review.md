@@ -28,5 +28,3 @@
 - The automatic flags are useful for catching collinearity and rare features, but they cannot replace a human (ideally clinical) review, because they only compare the model with its own data.
 
 ## Reviewer notes
-
-<!-- For the project owner: add your notes after reading the review above. -->

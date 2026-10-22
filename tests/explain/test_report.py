@@ -73,3 +73,34 @@ def test_latency_over_budget_is_called_out() -> None:
     slow = {**SUMMARY, "latency_ms": {**SUMMARY["latency_ms"], "p95": 80}}
     assert "over the 50 ms budget" in render_explainability(slow, review_md=None)
     assert "within the 50 ms budget" in render_explainability(SUMMARY, review_md=None)
+
+
+def test_flipped_contrast_sentence_leads_with_the_caveat() -> None:
+    from beaconai.explain.explainer import ContrastExplanation, ExplainedPrediction
+    from beaconai.models.calibrated import Differential, DifferentialItem
+
+    flipped = ExplainedPrediction(
+        prediction=Differential(
+            items=[
+                DifferentialItem(condition="A", probability=0.6),
+                DifferentialItem(condition="B", probability=0.4),
+            ]
+        ),
+        explanations=[],
+        contrast=ContrastExplanation(
+            condition="A",
+            versus="B",
+            logit_gap=-0.5,
+            baseline_gap=0.0,
+            favors_condition=[],
+            favors_versus=[],
+            ranking_changed_by_calibration=True,
+            note="Calibration ranks A above B, but the model's own scores rank them the other way.",
+        ),
+    )
+    from beaconai.explain.report import contrast_sentence
+
+    text = contrast_sentence(flipped)
+    assert text.startswith("BeaconAI answers. Calibration ranks A above B")
+    assert "The model's own scores favor B" in text
+    assert "Why A rather than B" not in text

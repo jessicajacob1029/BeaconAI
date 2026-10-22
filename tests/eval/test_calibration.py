@@ -65,3 +65,11 @@ def test_suggest_threshold() -> None:
     assert suggest_threshold(coverage_curve(Y, PROBA, [0.0, 0.5, 0.8], k=1), 1.0) == 0.5
     assert suggest_threshold(coverage_curve(Y, PROBA, [0.0, 0.5, 0.8], k=2), 1.0) == 0.0
     assert suggest_threshold(coverage_curve(Y, PROBA, [0.95], k=1), 0.5) is None
+
+
+def test_coverage_curve_with_tie_break() -> None:
+    proba = np.array([[0.9, 0.05, 0.05]])
+    raw = np.array([[0.8, 0.05, 0.15]])
+    curve = coverage_curve(np.array([2]), proba, [0.0], k=2, tie_break=raw)
+    assert curve.topk_accuracy[0] == 1.0
+    assert coverage_curve(np.array([2]), proba, [0.0], k=2).topk_accuracy[0] == 0.0

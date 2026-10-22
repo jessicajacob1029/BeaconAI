@@ -235,9 +235,9 @@ def test_evidence_curve_function() -> None:
     cols = np.array(["E_0", "E_1", "E_2", "E_3"], dtype=object)
     y = np.array([0, 1])
 
-    def proba(m):  # class 0 if E_0 present, else class 1
+    def proba(m):  # class 0 if E_0 present, else class 1; returns (calibrated, raw)
         p = np.where(m[:, [0]].toarray() > 0, [[0.9, 0.1]], [[0.2, 0.8]])
-        return p
+        return p, p
 
     out = evidence_curve(proba, X, y, np.array(["E_0", "E_3"]), cols, [0, 12], 0, 10)
     assert out["extra"] == [0, 12]
@@ -273,3 +273,18 @@ def test_threshold_suggestion_on_initial_evidence_only(tmp_path: Path) -> None:
     assert set(a["suggest_set"]) >= {"coverage", "top1_accuracy", "topk_accuracy"}
     md = (tmp_path / "reports" / "calibration.md").read_text(encoding="utf-8")
     assert "initial evidence plus 0 other evidences" in md
+
+
+def test_calibration_metrics_with_tie_break() -> None:
+    from beaconai.models.calibrate import calibration_metrics
+
+    proba = np.array([[0.9, 0.05, 0.05, 0.0]])
+    raw = np.array([[0.7, 0.05, 0.15, 0.1]])
+    y = np.array([2])
+    assert calibration_metrics(y, proba, 10)["top3_accuracy"] == 1.0  # {0,1,2}
+    y3 = np.array([3])  # tied with nothing, but outranked by the tie winner
+    assert calibration_metrics(y3, proba, 10, tie_break=raw)["top3_accuracy"] == 0.0
+    proba2 = np.array([[0.9, 0.04, 0.03, 0.03]])  # classes 2 and 3 tie for slot 3
+    raw2 = np.array([[0.7, 0.1, 0.05, 0.15]])
+    assert calibration_metrics(y3, proba2, 10)["top3_accuracy"] == 0.0
+    assert calibration_metrics(y3, proba2, 10, tie_break=raw2)["top3_accuracy"] == 1.0

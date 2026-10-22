@@ -21,7 +21,19 @@ The generated report is `reports/explainability.md` (`make explain`, full datase
 
 The first real run reported that calibration changes the top-3 set for 93% of patients. The cause: isotonic calibration maps many small probabilities to exactly the same value. For 96.5% of held-out patients, the calibrated probability in the second slot was below 1% (median exactly 0), and for 99.9% the third slot was tied with other conditions. So slots 2 and 3, and the runner-up in the contrast, were being chosen by a condition's position in `labels.json`.
 
-Fix: exact ties after calibration are now broken by the model's own (uncalibrated) score, in `predict_differential`, in the explainer, and in the ranking measure. This changes nothing for the top condition and makes slots 2 and 3 the model's genuine next choices. In the worked example, the panic attack contrast now names GERD (the model's real runner-up) instead of an alphabetical pick.
+Fix: exact ties after calibration are now broken by the model's own (uncalibrated) score, in `predict_differential`, in the explainer, and in the ranking measure. This changes the top condition only when it is itself exactly tied, and makes slots 2 and 3 the model's genuine next choices. In the worked example, the panic attack contrast now names GERD (the model's real runner-up) instead of an alphabetical pick.
+
+### Earlier metrics and the served order
+
+Phase 3 and 3b metrics (top-3 accuracy, the selection floors, the coverage curve behind the 0.60 threshold, and the one-time test result) were computed with exact ties ordered by label position, not by the model's score as predictions are now served. All metric functions now take the same tie-break, and future runs use it. Re-measured on the same held-out validation rows with the served order (the test split was not re-scored):
+
+| Evidence | Top-3, label order | Top-3, served order | Suggested threshold, label / served | Top-3 on answered at 0.60, label / served |
+|---|---:|---:|---:|---:|
+| Full record | 1.000 | 1.000 | 0.00 / 0.00 | 1.000 / 1.000 |
+| Initial + 3 | 0.983 | 0.983 | 0.00 / 0.00 | 0.999 / 0.999 |
+| Initial only | 0.585 | 0.590 | 0.60 / 0.58 | 0.953 / 0.965 |
+
+The served order is equal or slightly better everywhere, so the recorded numbers stand as a lower bound. The threshold stays at 0.60: it still meets the 95% target and is slightly more cautious than 0.58.
 
 ## Results
 

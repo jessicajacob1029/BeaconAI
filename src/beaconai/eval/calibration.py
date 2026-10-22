@@ -60,12 +60,16 @@ class CoverageCurve:
 
 
 def coverage_curve(
-    y_true: np.ndarray, proba: np.ndarray, thresholds: Sequence[float], k: int
+    y_true: np.ndarray,
+    proba: np.ndarray,
+    thresholds: Sequence[float],
+    k: int,
+    tie_break: np.ndarray | None = None,
 ) -> CoverageCurve:
     y, p = check_inputs(y_true, proba)
     conf = p.max(axis=1)
     top1_hit = p.argmax(axis=1) == y
-    topk_hit = (top_k_indices(p, k) == y[:, None]).any(axis=1)
+    topk_hit = (top_k_indices(p, k, tie_break) == y[:, None]).any(axis=1)
     t = np.asarray(thresholds, dtype=np.float64)
     coverage, acc1, acck = [], [], []
     for threshold in t:

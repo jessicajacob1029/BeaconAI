@@ -22,13 +22,19 @@ def contrast_sentence(explained: ExplainedPrediction, true_condition: str | None
         return ", ".join(f"{x.description} ({x.contribution:+.2f})" for x in xs[:3]) or "nothing"
 
     kind = "abstains" if explained.prediction.kind == "abstain" else "answers"
-    text = (
-        f"BeaconAI {kind}. Why {con.condition} rather than {con.versus}: "
-        f"{items(con.favors_condition)}. Pointing to {con.versus} instead: "
-        f"{items(con.favors_versus)}."
-    )
-    if con.note:
-        text += f" Note: {con.note}"
+    if con.ranking_changed_by_calibration:
+        # The model's own scores favor the runner-up: say so first, never present it as support.
+        text = (
+            f"BeaconAI {kind}. {con.note} The model's own scores favor {con.versus}: "
+            f"{items(con.favors_versus)}. Evidence for {con.condition}: "
+            f"{items(con.favors_condition)}."
+        )
+    else:
+        text = (
+            f"BeaconAI {kind}. Why {con.condition} rather than {con.versus}: "
+            f"{items(con.favors_condition)}. Pointing to {con.versus} instead: "
+            f"{items(con.favors_versus)}."
+        )
     if true_condition:
         text += f" (True condition: {true_condition}.)"
     return text

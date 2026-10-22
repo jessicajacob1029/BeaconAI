@@ -188,3 +188,13 @@ def test_latency_on_a_realistically_sized_model() -> None:
         exp.explain_row(r)
         times.append((time.perf_counter() - start) * 1000)
     assert np.percentile(times, 95) < 50
+
+
+def test_short_lists_are_not_padded() -> None:
+    # Zero baseline and one present symptom: at most one non-zero contribution per list.
+    out = _explainer(baseline=None).explain_row(_row({1: 1.0}))
+    for e in out.explanations:
+        assert len(e.supporting) + len(e.opposing) <= 1
+        assert all(x.contribution != 0 for x in e.supporting + e.opposing)
+    con = out.contrast
+    assert len(con.favors_condition) + len(con.favors_versus) <= 1

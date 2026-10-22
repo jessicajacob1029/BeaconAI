@@ -80,12 +80,15 @@ class CalibrationResult:
     fit_on: str = "full"
 
 
-def calibration_metrics(y: np.ndarray, proba: np.ndarray, n_bins: int) -> dict[str, float]:
+def calibration_metrics(
+    y: np.ndarray, proba: np.ndarray, n_bins: int, tie_break: np.ndarray | None = None
+) -> dict[str, float]:
+    k3 = min(TOP3, proba.shape[1])
     return {
         "ece": expected_calibration_error(y, proba, n_bins),
         "nll": negative_log_likelihood(y, proba),
-        "top1_accuracy": top_k_accuracy(y, proba, 1),
-        "top3_accuracy": top_k_accuracy(y, proba, min(TOP3, proba.shape[1])),
+        "top1_accuracy": top_k_accuracy(y, proba, 1, tie_break),
+        "top3_accuracy": top_k_accuracy(y, proba, k3, tie_break),
     }
 
 
@@ -144,9 +147,15 @@ def _log_candidate(
     return CalibrationResult(name, method, run.info.run_id, uri, metrics, temperature, fit_on)
 
 
-def answered_at(y: np.ndarray, proba: np.ndarray, threshold: float, k: int) -> dict[str, Any]:
+def answered_at(
+    y: np.ndarray,
+    proba: np.ndarray,
+    threshold: float,
+    k: int,
+    tie_break: np.ndarray | None = None,
+) -> dict[str, Any]:
     """Coverage and accuracy at one threshold. Accuracy is None (not NaN) if nobody is answered."""
-    curve = coverage_curve(y, proba, [threshold], k)
+    curve = coverage_curve(y, proba, [threshold], k, tie_break)
     coverage = float(curve.coverage[0])
     out: dict[str, Any] = {
         "coverage": coverage,
@@ -161,7 +170,7 @@ def answered_at(y: np.ndarray, proba: np.ndarray, threshold: float, k: int) -> d
 
 
 def evidence_curve(
-    predict_proba: Callable[[sparse.csr_matrix], np.ndarray],
+    predict: Callable[[sparse.csr_matrix], tuple[np.ndarray, np.ndarray]],
     X: sparse.csr_matrix,
     y: np.ndarray,
     initial_evidence: np.ndarray,
@@ -170,11 +179,14 @@ def evidence_curve(
     seed: int,
     n_bins: int,
 ) -> dict[str, Any]:
-    """Top-3 accuracy and ECE when patients keep the initial evidence plus n other evidences."""
+    """Top-3 accuracy and ECE when patients keep the initial evidence plus n other evidences.
+
+    `predict` returns (calibrated, raw) probabilities; raw breaks exact ties as served.
+    """
     top3, ece = [], []
     for n in extras:
-        proba = predict_proba(partial_evidence(X, initial_evidence, col_evidence, n, seed))
-        m = calibration_metrics(y, proba, n_bins)
+        proba, raw = predict(partial_evidence(X, initial_evidence, col_evidence, n, seed))
+        m = calibration_metrics(y, proba, n_bins, tie_break=raw)
         top3.append(m["top3_accuracy"])
         ece.append(m["ece"])
     return {"extra": list(extras), "top3_accuracy": top3, "ece": ece}
@@ -295,8 +307,12 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
                     )
                     q_held = calibrator.transform(raw_held)
                     q_partial = calibrator.transform(raw_partial)
-                    metrics = calibration_metrics(held.y, q_held, cal_cfg.ece_bins)
-                    partial_m = calibration_metrics(partial.y, q_partial, cal_cfg.ece_bins)
+                    metrics = calibration_metrics(
+                        held.y, q_held, cal_cfg.ece_bins, tie_break=raw_held
+                    )
+                    partial_m = calibration_metrics(
+                        partial.y, q_partial, cal_cfg.ece_bins, tie_break=raw_partial
+                    )
                     metrics |= {f"partial_{key}": v for key, v in partial_m.items()}
                     label = method if method == "none" else f"{method} ({fit_on})"
                     panels["Full evidence"][label] = reliability_bins(
@@ -326,11 +342,12 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
 
         champion = select_calibrated(results, floor.full, floor.partial)
         clf = load_calibrated(champion.model_uri)
-        p_held, p_partial = clf.predict_proba(held.X), clf.predict_proba(partial.X)
+        p_held, r_held = clf.predict_raw_and_calibrated(held.X)
+        p_partial, r_partial = clf.predict_raw_and_calibrated(partial.X)
         thresholds = np.linspace(0.0, 1.0, abst.curve_points)
         curves = {
-            "Full evidence": coverage_curve(held.y, p_held, thresholds, k),
-            "Partial evidence": coverage_curve(partial.y, p_partial, thresholds, k),
+            "Full evidence": coverage_curve(held.y, p_held, thresholds, k, r_held),
+            "Partial evidence": coverage_curve(partial.y, p_partial, thresholds, k, r_partial),
         }
         held_initial = meta["initial_evidence"][held_idx]
         suggest_set = None
@@ -339,10 +356,10 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         else:
             n = abst.suggest_on_extra
             X_s = partial_evidence(held.X, held_initial, cols, n, cfg.seed)
-            p_s = clf.predict_proba(X_s)
-            curves[f"Initial evidence + {n}"] = coverage_curve(held.y, p_s, thresholds, k)
+            p_s, r_s = clf.predict_raw_and_calibrated(X_s)
+            curves[f"Initial evidence + {n}"] = coverage_curve(held.y, p_s, thresholds, k, r_s)
             suggested = suggest_threshold(curves[f"Initial evidence + {n}"], abst.target_accuracy)
-            suggest_set = answered_at(held.y, p_s, abst.threshold, k)
+            suggest_set = answered_at(held.y, p_s, abst.threshold, k, r_s)
         coverage_image = f"coverage_accuracy{sfx}.png"
         cov_path = plot_coverage(
             curves,
@@ -351,8 +368,8 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             f"{champion.model} + {champion.method}",
         )
         mlflow.log_artifact(str(cov_path))
-        full_at = answered_at(held.y, p_held, abst.threshold, k)
-        partial_at = answered_at(partial.y, p_partial, abst.threshold, k)
+        full_at = answered_at(held.y, p_held, abst.threshold, k, r_held)
+        partial_at = answered_at(partial.y, p_partial, abst.threshold, k, r_partial)
         mlflow.log_metrics(
             {
                 "champion_partial_ece": champion.metrics["partial_ece"],
@@ -365,7 +382,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         curve = {
             "extra": list(cal_cfg.evidence_curve),
             "champion": evidence_curve(
-                clf.predict_proba,
+                clf.predict_raw_and_calibrated,
                 held.X,
                 held.y,
                 held_initial,
@@ -379,7 +396,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         if baseline is not None:
             old_clf = load_calibrated(baseline["champion"]["model_uri"])
             curve["phase3_champion"] = evidence_curve(
-                old_clf.predict_proba,
+                old_clf.predict_raw_and_calibrated,
                 held.X,
                 held.y,
                 held_initial,

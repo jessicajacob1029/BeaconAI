@@ -45,9 +45,12 @@ def top_k_indices(proba: np.ndarray, k: int, tie_break: np.ndarray | None = None
     return np.lexsort((-t, -p), axis=-1)[:, :k]
 
 
-def top_k_accuracy(y_true: np.ndarray, proba: np.ndarray, k: int) -> float:
+def top_k_accuracy(
+    y_true: np.ndarray, proba: np.ndarray, k: int, tie_break: np.ndarray | None = None
+) -> float:
+    """Share of rows whose true class is in the top k (ties ordered by `tie_break` if given)."""
     y, p = check_inputs(y_true, proba)
-    return float((top_k_indices(p, k) == y[:, None]).any(axis=1).mean())
+    return float((top_k_indices(p, k, tie_break) == y[:, None]).any(axis=1).mean())
 
 
 def macro_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -76,7 +79,9 @@ def top_confusions(cm: np.ndarray, n: int) -> list[tuple[int, int, int]]:
     return [(int(r), int(c), int(v)) for r, c, v in cells[:n]]
 
 
-def ddx_overlap_at_k(proba: np.ndarray, ddx: sparse.csr_matrix, k: int) -> dict[str, float]:
+def ddx_overlap_at_k(
+    proba: np.ndarray, ddx: sparse.csr_matrix, k: int, tie_break: np.ndarray | None = None
+) -> dict[str, float]:
     """Overlap between our top-k and the DDXPlus ground-truth differential.
 
     D = classes with non-zero reference probability, P = our top-k classes.
@@ -88,7 +93,7 @@ def ddx_overlap_at_k(proba: np.ndarray, ddx: sparse.csr_matrix, k: int) -> dict[
     if ddx.shape != p.shape:
         raise ValueError(f"ddx shape {ddx.shape} does not match proba shape {p.shape}")
     in_ref = (ddx.toarray() if sparse.issparse(ddx) else np.asarray(ddx)) > 0
-    top = top_k_indices(p, k)
+    top = top_k_indices(p, k, tie_break)
     hits = np.take_along_axis(in_ref, top, axis=1).sum(axis=1)
     ref_size = in_ref.sum(axis=1)
 
@@ -117,14 +122,17 @@ def evaluate_predictions(
     ddx: sparse.csr_matrix | None,
     ks: Sequence[int],
     ddx_ks: Sequence[int],
+    tie_break: np.ndarray | None = None,
 ) -> EvalResult:
+    """All metrics. `tie_break` (the model's uncalibrated scores) orders exactly tied
+    probabilities the way predictions are served."""
     y, p = check_inputs(y_true, proba)
     y_pred = p.argmax(axis=1)
-    metrics = {f"top{k}_accuracy": top_k_accuracy(y, p, k) for k in ks}
+    metrics = {f"top{k}_accuracy": top_k_accuracy(y, p, k, tie_break) for k in ks}
     metrics["macro_f1"] = macro_f1(y, y_pred)
     if ddx is not None:
         for k in ddx_ks:
-            overlap = ddx_overlap_at_k(p, ddx, k)
+            overlap = ddx_overlap_at_k(p, ddx, k, tie_break)
             metrics[f"ddx_precision_at{k}"] = overlap["precision"]
             metrics[f"ddx_recall_at{k}"] = overlap["recall"]
             metrics[f"ddx_recall_norm_at{k}"] = overlap["recall_norm"]
