@@ -330,7 +330,17 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             "Full evidence": coverage_curve(held.y, p_held, thresholds, k),
             "Partial evidence": coverage_curve(partial.y, p_partial, thresholds, k),
         }
-        suggested = suggest_threshold(curves["Partial evidence"], abst.target_accuracy)
+        held_initial = meta["initial_evidence"][held_idx]
+        suggest_set = None
+        if abst.suggest_on_extra is None:
+            suggested = suggest_threshold(curves["Partial evidence"], abst.target_accuracy)
+        else:
+            n = abst.suggest_on_extra
+            X_s = partial_evidence(held.X, held_initial, cols, n, cfg.seed)
+            p_s = clf.predict_proba(X_s)
+            curves[f"Initial evidence + {n}"] = coverage_curve(held.y, p_s, thresholds, k)
+            suggested = suggest_threshold(curves[f"Initial evidence + {n}"], abst.target_accuracy)
+            suggest_set = answered_at(held.y, p_s, abst.threshold, k)
         coverage_image = f"coverage_accuracy{sfx}.png"
         cov_path = plot_coverage(
             curves,
@@ -350,7 +360,6 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
                 **({"suggested_threshold": suggested} if suggested is not None else {}),
             }
         )
-        held_initial = meta["initial_evidence"][held_idx]
         curve = {
             "extra": list(cal_cfg.evidence_curve),
             "champion": evidence_curve(
@@ -439,6 +448,8 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             "k": k,
             "full": full_at,
             "partial": partial_at,
+            "suggest_on_extra": abst.suggest_on_extra,
+            "suggest_set": suggest_set,
         },
         "evidence_curve": curve,
     }

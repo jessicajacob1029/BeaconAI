@@ -139,3 +139,14 @@ def test_no_comparison_across_data_scopes() -> None:
     )
     assert "## Comparison with the Phase 3 baseline" not in md
     assert "| 3 | 0.800 | 0.0300 |" in md  # curve for the new champion only
+
+
+def test_suggestion_on_initial_evidence_only_is_described() -> None:
+    abst = {
+        **SUMMARY["abstention"],
+        "suggest_on_extra": 0,
+        "suggest_set": {"coverage": 0.301, "top1_accuracy": 0.751, "topk_accuracy": 0.953},
+    }
+    md = _render({**SUMMARY, "abstention": abst})
+    assert "initial evidence plus 0 other evidences" in md
+    assert "| Initial evidence + 0 | 30.1% | 0.751 | 0.953 |" in md

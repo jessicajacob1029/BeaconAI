@@ -216,25 +216,33 @@ def render_calibration(
         "of the most likely condition is below this; equal is answered.",
         "",
     ]
+    n_extra = abst.get("suggest_on_extra")
+    who = (
+        "answered partial-evidence patients"
+        if n_extra is None
+        else f"answered patients who know only the initial evidence plus {n_extra} other evidences"
+    )
     if abst["suggested_threshold"] is None:
         out.append(
             f"No threshold reaches top-{abst['k']} accuracy of {abst['target_accuracy']:.2f} "
-            "on answered partial-evidence patients."
+            f"for {who}."
         )
     else:
         out.append(
             f"Suggested threshold: {abst['suggested_threshold']:.2f} (smallest threshold whose "
-            f"answered partial-evidence patients reach top-{abst['k']} accuracy of "
-            f"{abst['target_accuracy']:.2f})."
+            f"{who} reach top-{abst['k']} accuracy of {abst['target_accuracy']:.2f})."
         )
+    rows = [("Full evidence", abst["full"]), ("Partial evidence", abst["partial"])]
+    if n_extra is not None and abst.get("suggest_set"):
+        rows.append((f"Initial evidence + {n_extra}", abst["suggest_set"]))
     out += [
         "",
         f"| Evidence | Answered | Top-1 on answered | Top-{abst['k']} on answered |",
         "|---|---:|---:|---:|",
         *[
-            f"| {label} | {abst[key]['coverage']:.1%} | {_f(abst[key]['top1_accuracy'])} | "
-            f"{_f(abst[key]['topk_accuracy'])} |"
-            for label, key in (("Full evidence", "full"), ("Partial evidence", "partial"))
+            f"| {label} | {a['coverage']:.1%} | {_f(a['top1_accuracy'])} | "
+            f"{_f(a['topk_accuracy'])} |"
+            for label, a in rows
         ],
         "",
         f"![Coverage vs accuracy]({coverage_image})",

@@ -250,3 +250,14 @@ def test_run_reports_evidence_curve_and_baseline_comparison(tmp_path: Path) -> N
     md = (reports / "calibration.md").read_text(encoding="utf-8")
     assert "## Comparison with the Phase 3 baseline" in md
     assert "## Accuracy and calibration by number of known evidences" in md
+
+
+def test_threshold_suggestion_on_initial_evidence_only(tmp_path: Path) -> None:
+    cfg = _trained(tmp_path, None)
+    abst = cfg.abstention.model_copy(update={"suggest_on_extra": 0})
+    summary = run_calibration(cfg.model_copy(update={"abstention": abst}))
+    a = summary["abstention"]
+    assert a["suggest_on_extra"] == 0
+    assert set(a["suggest_set"]) >= {"coverage", "top1_accuracy", "topk_accuracy"}
+    md = (tmp_path / "reports" / "calibration.md").read_text(encoding="utf-8")
+    assert "initial evidence plus 0 other evidences" in md

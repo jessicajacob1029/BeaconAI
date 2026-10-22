@@ -211,6 +211,10 @@ class AbstentionConfig(_StrictModel):
     target_accuracy: float = Field(default=0.95, gt=0, le=1)
     differential_size: int = Field(default=3, ge=1)
     curve_points: int = Field(default=101, ge=2)
+    # Evidence level the threshold suggestion is computed on: patients who keep the initial
+    # evidence plus this many others. None means the partial-evidence set (initial plus
+    # calibration.partial_evidence.extra_evidences).
+    suggest_on_extra: int | None = Field(default=None, ge=0)
 
 
 class Config(_StrictModel):
