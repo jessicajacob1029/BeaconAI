@@ -41,10 +41,10 @@ train:  ## Grid-search all models on validation, log to MLflow, register the bes
 train-final:  ## Retrain only the winning params from the last grid search (full data)
 	uv run python -m beaconai.models.train --winners-only
 
-eval:  ## Score test ONCE on full data and write reports/model_comparison.md
-	uv run python -m beaconai.eval.evaluate --split test
+eval:  ## Score the calibrated champion on test, once per evaluation name (full data)
+	uv run python -m beaconai.eval.final
 
-eval-val:  ## Validation-only report, safe to run while iterating
+eval-val:  ## Compare the Phase 2 models on validation (never touches test)
 	uv run python -m beaconai.eval.evaluate --split validate
 
 serve:  ## FastAPI on :8000 (Phase 5)

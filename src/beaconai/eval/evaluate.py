@@ -1,7 +1,9 @@
-"""Score the tuned models on a split, draw figures, and write reports/model_comparison.md.
+"""Compare the tuned Phase 2 models on validation and write reports/model_comparison_val.md.
 
 Run: uv run python -m beaconai.eval.evaluate --split validate   (any time while iterating)
-     uv run python -m beaconai.eval.evaluate --split test       (once, full data, at the end)
+
+The test split is not scored here. The only test evaluation is the one-time evaluation of the
+calibrated champion: `make eval` (beaconai.eval.final).
 """
 
 from __future__ import annotations
@@ -10,7 +12,6 @@ import argparse
 import json
 import math
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,33 +32,14 @@ from beaconai.models.train import (
     load_wrapper,
 )
 
-LOCK_FILE = "test_eval_lock.json"
-SPLITS = ("validate", "test")
-# Validation outputs get their own names so they never overwrite the one-time test report.
-SUFFIX = {"validate": "_val", "test": ""}
+SPLITS = ("validate",)
+SUFFIX = {"validate": "_val"}
 
 
 class TestGuardError(Exception):
-    """Raised when a test-split evaluation would break the score-test-once rule."""
+    """Raised when something asks this module to score the test split."""
 
     __test__ = False  # not a pytest test class
-
-
-def check_test_allowed(summary: dict[str, Any], lock_path: Path, force: bool) -> None:
-    if force:
-        return
-    if summary["dev_sample"] is not None:
-        raise TestGuardError(
-            "Test evaluation needs the full dataset (data.dev_sample: null). "
-            "Use --split validate while iterating."
-        )
-    if lock_path.is_file():
-        lock = json.loads(lock_path.read_text(encoding="utf-8"))
-        raise TestGuardError(
-            f"Test split was already evaluated for training run {lock['train_parent_run_id']}. "
-            "Scoring it again after changes leaks test information. Pass --force only if you "
-            "accept that and will report it."
-        )
 
 
 def _score(model_uri: str, data: SplitData, cfg: Config) -> EvalResult:
@@ -83,8 +65,12 @@ def _confusion_pairs(
     ]
 
 
-def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
-    """Write the comparison report for `split` and return its path."""
+def run_evaluation(cfg: Config, split: str) -> Path:
+    """Write the validation comparison report and return its path."""
+    if split == "test":
+        raise TestGuardError(
+            "The test split is scored only for the calibrated champion: run `make eval`."
+        )
     if split not in SPLITS:
         raise ValueError(f"split must be one of {SPLITS}; training data is never scored here")
     mlflow_cfg, _, _, eval_cfg = require_training(cfg)
@@ -95,9 +81,6 @@ def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     processed = processed_dir_from_config(cfg.data.paths.processed)
     check_data_scope(summary["dev_sample"], data_scope(processed))
-    lock_path = reports / LOCK_FILE
-    if split == "test":
-        check_test_allowed(summary, lock_path, force)
 
     labels = load_labels(processed)
     names = [lab["name"] for lab in labels]
@@ -111,17 +94,14 @@ def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
         for name, info in summary["models"].items():
             # Validation metrics were computed at training time; only the champion is
             # re-scored on validation, for its confusion matrix and recall plot.
-            if split == "test" or name == champion:
+            if name == champion:
                 results[name] = _score(info["model_uri"], data, cfg)
-            if split == "test":
-                metrics = results[name].metrics
-                mlflow.log_metrics({f"test_{name}_{k}": v for k, v in metrics.items()})
         rows = [
             ComparisonRow(
                 name,
                 info["params"],
                 info["val_metrics"],
-                results[name].metrics if split == "test" else None,
+                None,
                 info["fit_seconds"],
                 info["latency_ms"],
             )
@@ -161,22 +141,15 @@ def run_evaluation(cfg: Config, split: str, *, force: bool = False) -> Path:
         for path in (report, cm_path, recall_path):
             mlflow.log_artifact(str(path))
 
-    if split == "test":
-        lock = {
-            "train_parent_run_id": summary["parent_run_id"],
-            "evaluated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        }
-        lock_path.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
     return report
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--split", choices=SPLITS, default="validate")
-    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--split", default="validate")
     args = parser.parse_args()
     try:
-        print(run_evaluation(load_config(), args.split, force=args.force))
+        print(run_evaluation(load_config(), args.split))
     except (TestGuardError, DataScopeError) as err:
         print(f"Refused: {err}", file=sys.stderr)
         return 2
