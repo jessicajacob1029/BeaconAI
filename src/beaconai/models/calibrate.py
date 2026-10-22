@@ -251,6 +251,8 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
     k = abst.differential_size
     floor = cal_cfg.top3_floor
     configure_mlflow(mlflow_cfg, experiment=cal_cfg.experiment)
+    # One phase label for the MLflow run and the registry version.
+    phase = "3b" if "dropout" in cal_cfg.variants else "3"
 
     results: list[CalibrationResult] = []
     reliability_images: dict[str, str] = {}
@@ -259,7 +261,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             {
                 "dev_sample": str(dev_sample),
                 "train_parent_run_id": train_summary["parent_run_id"],
-                "phase": "3",
+                "phase": phase,
                 "selection": "lowest partial-evidence ECE, top-3 floors on full and partial",
             }
         )
@@ -412,7 +414,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             "calibrated_on": champion.fit_on,
             "held_out_partial_ece": f"{champion.metrics['partial_ece']:.5f}",
             "held_out_ece": f"{champion.metrics['ece']:.5f}",
-            "phase": "3b" if "dropout" in cal_cfg.variants else "3",
+            "phase": phase,
         },
     )
     summary = {

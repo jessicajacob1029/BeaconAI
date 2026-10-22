@@ -185,6 +185,10 @@ def test_variants_and_partial_rows_full_grid(tmp_path: Path) -> None:
     assert ("xgboost", "none", "full") in keys and ("xgboost", "none", "partial") not in keys
     configure_mlflow(cfg.mlflow)
     mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "champion")
+    assert mv.tags["phase"] == "3b"
+    runs = mlflow.search_runs(experiment_names=[cfg.calibration.experiment])
+    parent = runs[runs["tags.mlflow.parentRunId"].isna()].iloc[0]
+    assert parent["tags.phase"] == "3b"  # same as the registry tag
     assert mv.tags["model_type"] == summary["champion"]["model"]
     assert mv.tags["calibrated_on"] == summary["champion"]["fit_on"]
 

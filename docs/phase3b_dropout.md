@@ -34,7 +34,7 @@ What this shows:
 - **The comparison slightly favors the baseline.** The Phase 2 models early-stopped on all of validation, including the held-out half, which makes the baseline numbers a little optimistic. The dropout models never saw the held-out half. The conclusions below hold despite that.
 - **Dropout does the heavy lifting.** It raises partial-evidence top-3 from 0.761 to 0.983 and top-1 from 0.609 to 0.898. Calibration cannot do that, because it can only reshape probabilities, not fix the ranking.
 - **Partial-row calibration alone helps calibration but not accuracy,** and it can damage full-evidence calibration. For the Phase 2 XGBoost, temperature scaling fit on partial rows pushes full-evidence ECE to 0.85. The dropout models are well calibrated on both settings, so fitting on partial rows costs them almost nothing on full evidence.
-- **XGBoost and logistic regression are close after dropout.** XGBoost has slightly higher top-3 (0.989 vs 0.983) but higher ECE (0.0036 vs 0.0027). Logistic regression wins under the selection rule (lowest partial-evidence ECE among pairs meeting both top-3 floors). It is also faster (82 s to train vs 580 s) and easier to explain. XGBoost hit its 400-round cap without early stopping on both dev and full data, so it may improve with more rounds; that is a follow-up, not a reason to change the rule.
+- **XGBoost and logistic regression are close after dropout.** XGBoost has slightly higher top-3 (0.989 vs 0.983) but higher ECE (0.0036 vs 0.0027). Logistic regression wins under the selection rule (lowest partial-evidence ECE among pairs meeting both top-3 floors). It is also faster (82 s to train vs 580 s) and easier to explain. XGBoost hit its 400-round cap without early stopping on both dev and full data, so it may improve with more rounds. That is not being pursued, because logistic regression is the champion.
 
 ### How accuracy grows with what the patient tells us
 
@@ -77,7 +77,7 @@ Test agrees closely with validation (partial top-3 0.984 vs 0.983, ECE 0.0028 vs
 
 - **Differential overlap on full evidence dropped** (DDx nR@3 0.527 on test, vs about 0.70 for the Phase 2 models). With a complete record the champion is near-certain, so the 2nd and 3rd slots carry little probability and are not chosen to match the DDXPlus reference differential. The Phase 5 `min_display_prob` rule (hide items below 1% in the API) covers how this is shown. If a reference-like differential matters later, it needs its own objective.
 - **The yes/no/not-asked encoding was not built.** It would need a second column per evidence, changes to the Phase 1 encoder and to `PatientEvidence` (callers must say which questions were answered "no"), and a simulation of which absent evidences were asked during training. Phase 8 is the natural place, because the agent knows exactly which questions it asked.
-- **XGBoost + dropout used all 400 rounds.** A larger round budget may help it. It would be validated on validation only.
+- **XGBoost + dropout used all 400 rounds.** A larger round budget might help it. Decision: not pursued, because logistic regression is the champion.
 - **Phase 2's `make eval` no longer touches test.** `make eval` is now this one-time champion evaluation, with one lock per evaluation name in `reports/test_locks/`. A later evaluation (for example a Phase 8 agent simulation) gets its own name and its own one-time run.
 
 ## Method
