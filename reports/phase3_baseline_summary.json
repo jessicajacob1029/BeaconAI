@@ -1,0 +1,140 @@
+{
+  "parent_run_id": "2d60046180744a75b61598aaf4a170a6",
+  "train_parent_run_id": "25676394f2f346e79943107c05524650",
+  "dev_sample": null,
+  "n_fit": 66225,
+  "n_held": 66223,
+  "top3_floor": {
+    "full": 0.99,
+    "partial": 0.65
+  },
+  "champion": {
+    "model": "logreg",
+    "method": "temperature",
+    "run_id": "b44c81b9602447d28644a8cfe06d37a7",
+    "model_uri": "models:/m-76727643199e4c29ba124752af7bb549",
+    "metrics": {
+      "ece": 0.0006174011746563149,
+      "nll": 0.011254145737983591,
+      "top1_accuracy": 0.9958020627274512,
+      "top3_accuracy": 1.0,
+      "partial_ece": 0.08225729230498052,
+      "partial_nll": 1.6083609413535351,
+      "partial_top1_accuracy": 0.6088217084698669,
+      "partial_top3_accuracy": 0.7611403892907298
+    }
+  },
+  "registered": {
+    "name": "beaconai-classifier",
+    "version": 8,
+    "alias": "champion"
+  },
+  "candidates": [
+    {
+      "model": "xgboost",
+      "method": "none",
+      "temperature": null,
+      "metrics": {
+        "ece": 0.00034744860716496,
+        "nll": 0.007957164782488571,
+        "top1_accuracy": 0.9972668106247075,
+        "top3_accuracy": 1.0,
+        "partial_ece": 0.5556783378151801,
+        "partial_nll": 11.474370800331346,
+        "partial_top1_accuracy": 0.281835616024644,
+        "partial_top3_accuracy": 0.7065672047475953
+      }
+    },
+    {
+      "model": "xgboost",
+      "method": "temperature",
+      "temperature": 0.9955111334318998,
+      "metrics": {
+        "ece": 0.00035480715106261755,
+        "nll": 0.007954667860220243,
+        "top1_accuracy": 0.9972668106247075,
+        "top3_accuracy": 1.0,
+        "partial_ece": 0.5560637120346423,
+        "partial_nll": 11.51590873919552,
+        "partial_top1_accuracy": 0.281835616024644,
+        "partial_top3_accuracy": 0.7065672047475953
+      }
+    },
+    {
+      "model": "xgboost",
+      "method": "isotonic",
+      "temperature": null,
+      "metrics": {
+        "ece": 0.0004106514330196068,
+        "nll": 0.008876303244653674,
+        "top1_accuracy": 0.9972668106247075,
+        "top3_accuracy": 0.9999546985186416,
+        "partial_ece": 0.5770144057187921,
+        "partial_nll": 16.66000691204858,
+        "partial_top1_accuracy": 0.2841761925614968,
+        "partial_top3_accuracy": 0.3738731256512088
+      }
+    },
+    {
+      "model": "logreg",
+      "method": "none",
+      "temperature": null,
+      "metrics": {
+        "ece": 0.00044799589782074675,
+        "nll": 0.011224303125472465,
+        "top1_accuracy": 0.9958020627274512,
+        "top3_accuracy": 1.0,
+        "partial_ece": 0.09663598346528929,
+        "partial_nll": 1.638222771125393,
+        "partial_top1_accuracy": 0.6088217084698669,
+        "partial_top3_accuracy": 0.7611403892907298
+      }
+    },
+    {
+      "model": "logreg",
+      "method": "temperature",
+      "temperature": 1.053052482589811,
+      "metrics": {
+        "ece": 0.0006174011746563149,
+        "nll": 0.011254145737983591,
+        "top1_accuracy": 0.9958020627274512,
+        "top3_accuracy": 1.0,
+        "partial_ece": 0.08225729230498052,
+        "partial_nll": 1.6083609413535351,
+        "partial_top1_accuracy": 0.6088217084698669,
+        "partial_top3_accuracy": 0.7611403892907298
+      }
+    },
+    {
+      "model": "logreg",
+      "method": "isotonic",
+      "temperature": null,
+      "metrics": {
+        "ece": 0.00034215134369346416,
+        "nll": 0.0120984560948933,
+        "top1_accuracy": 0.9957114597647343,
+        "top3_accuracy": 0.9999546985186416,
+        "partial_ece": 0.1872119352444625,
+        "partial_nll": 3.958329695430429,
+        "partial_top1_accuracy": 0.6331486039593495,
+        "partial_top3_accuracy": 0.7976231822780605
+      }
+    }
+  ],
+  "abstention": {
+    "threshold": 0.84,
+    "suggested_threshold": 0.84,
+    "target_accuracy": 0.95,
+    "k": 3,
+    "full": {
+      "coverage": 0.9902148800265769,
+      "top1_accuracy": 0.9985970263057568,
+      "topk_accuracy": 1.0
+    },
+    "partial": {
+      "coverage": 0.44312399015447806,
+      "top1_accuracy": 0.9040381666382689,
+      "topk_accuracy": 0.9517123871187596
+    }
+  }
+}
