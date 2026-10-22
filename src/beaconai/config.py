@@ -217,6 +217,26 @@ class AbstentionConfig(_StrictModel):
     suggest_on_extra: int | None = Field(default=None, ge=0)
 
 
+class ExplainConfig(_StrictModel):
+    top_positive: int = Field(default=5, ge=1)
+    top_negative: int = Field(default=3, ge=0)
+    global_top: int = Field(default=10, ge=1)
+    global_conditions: list[str]
+    min_prevalence: float = Field(default=0.01, ge=0, le=1)
+    latency_budget_ms: float = Field(default=50, gt=0)
+    latency_calls: int = Field(default=300, ge=1)
+    experiment: str = "beaconai-phase4"
+
+    @field_validator("global_conditions")
+    @classmethod
+    def _six_to_eight_unique(cls, names: list[str]) -> list[str]:
+        if not 6 <= len(names) <= 8:
+            raise ValueError("global_conditions must list 6 to 8 conditions")
+        if len(set(names)) != len(names):
+            raise ValueError("global_conditions must be unique")
+        return names
+
+
 class Config(_StrictModel):
     seed: int = Field(default=42, ge=0)
     data: DataConfig
@@ -230,6 +250,7 @@ class Config(_StrictModel):
     abstention: AbstentionConfig | None = None
     dropout: DropoutConfig | None = None
     final_eval: FinalEvalConfig = FinalEvalConfig()
+    explain: ExplainConfig | None = None
 
     @model_validator(mode="after")
     def _selection_metric_is_computed(self) -> Config:
@@ -323,3 +344,9 @@ def require_dropout(cfg: Config) -> DropoutConfig:
     if cfg.dropout is None:
         raise ValueError("config is missing the dropout section")
     return cfg.dropout
+
+
+def require_explain(cfg: Config) -> ExplainConfig:
+    if cfg.explain is None:
+        raise ValueError("config is missing the explain section")
+    return cfg.explain
