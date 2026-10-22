@@ -95,6 +95,9 @@ def make_config(tmp_path: Path, *, dev_sample: int | None) -> Config:
         partial_evidence={"extra_evidences": 1},
     )
     raw["abstention"].update(curve_points=11, target_accuracy=0.9)
+    # Toy runs stay small; dropout-specific tests opt in to the dropout variant.
+    raw["calibration"].update(variants=["baseline"], evidence_curve=[0, 1, 2])
+    raw["dropout"].update(copies=1)
     return Config.model_validate(raw)
 
 

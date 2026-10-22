@@ -145,6 +145,38 @@ class Top3Floor(_StrictModel):
     partial: float = Field(ge=0, le=1)
 
 
+CalibrationVariant = Literal["baseline", "dropout"]
+CalibrationRows = Literal["full", "partial"]
+
+
+class DropoutConfig(_StrictModel):
+    models: list[ModelName] = Field(min_length=1)
+    rate_range: tuple[float, float]
+    copies: int = Field(default=1, ge=0)
+    keep_original: bool = True
+    experiment: str = "beaconai-phase3b"
+
+    @field_validator("rate_range")
+    @classmethod
+    def _range_inside_unit_interval(cls, bounds: tuple[float, float]) -> tuple[float, float]:
+        low, high = bounds
+        if not 0 < low <= high < 1:
+            raise ValueError("rate_range must satisfy 0 < low <= high < 1")
+        return bounds
+
+    @model_validator(mode="after")
+    def _has_rows(self) -> DropoutConfig:
+        if self.copies == 0 and not self.keep_original:
+            raise ValueError("copies=0 with keep_original=false leaves no training rows")
+        return self
+
+
+class FinalEvalConfig(_StrictModel):
+    # A safe file stem: the lock is reports/test_locks/<name>.json.
+    name: str = Field(default="classifier_final", pattern=r"^[A-Za-z0-9_-]+$")
+    experiment: str = "beaconai-final"
+
+
 class CalibrationConfig(_StrictModel):
     models: list[ModelName] = Field(min_length=1)
     methods: list[CalibrationMethod] = Field(min_length=1)
@@ -154,6 +186,16 @@ class CalibrationConfig(_StrictModel):
     top3_floor: Top3Floor
     experiment: str | None = None
     partial_evidence: PartialEvidenceConfig = PartialEvidenceConfig()
+    variants: list[CalibrationVariant] = Field(default_factory=lambda: ["baseline"], min_length=1)
+    fit_on: list[CalibrationRows] = Field(default_factory=lambda: ["full"], min_length=1)
+    evidence_curve: list[int] = Field(default_factory=list)
+
+    @field_validator("evidence_curve")
+    @classmethod
+    def _non_negative(cls, values: list[int]) -> list[int]:
+        if any(v < 0 for v in values):
+            raise ValueError("evidence_curve values must be >= 0")
+        return values
 
     @field_validator("temperature_bounds")
     @classmethod
@@ -182,6 +224,8 @@ class Config(_StrictModel):
     eval: EvalConfig | None = None
     calibration: CalibrationConfig | None = None
     abstention: AbstentionConfig | None = None
+    dropout: DropoutConfig | None = None
+    final_eval: FinalEvalConfig = FinalEvalConfig()
 
     @model_validator(mode="after")
     def _selection_metric_is_computed(self) -> Config:
@@ -269,3 +313,9 @@ def require_calibration(cfg: Config) -> tuple[CalibrationConfig, AbstentionConfi
         raise ValueError(f"config is missing sections needed for calibration: {missing}")
     assert cfg.calibration and cfg.abstention
     return cfg.calibration, cfg.abstention
+
+
+def require_dropout(cfg: Config) -> DropoutConfig:
+    if cfg.dropout is None:
+        raise ValueError("config is missing the dropout section")
+    return cfg.dropout

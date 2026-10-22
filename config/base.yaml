@@ -112,6 +112,14 @@ calibration:
     # validation), so the floor only removes calibrations that damage the ranking.
     partial: 0.65
   experiment: beaconai-phase3
+  # Base models to calibrate: Phase 2 models (baseline) and evidence-dropout retrains (dropout).
+  variants: [baseline, dropout]
+  # Rows the calibrators are fit on: the calibration half as is (full), or its
+  # partial-evidence version (partial). Raw (method none) is listed once.
+  fit_on: [full, partial]
+  # Champion top-3 and ECE when patients keep the initial evidence plus this many others
+  # (held-out half; Phase 3 vs Phase 3b champion when both are full-data runs).
+  evidence_curve: [0, 1, 2, 3, 5, 8, 12]
   partial_evidence:
     # Each patient keeps the initial evidence plus this many other random evidences.
     extra_evidences: 3
@@ -128,3 +136,23 @@ abstention:
   differential_size: 3
   # Thresholds evaluated for the coverage vs accuracy curve (evenly spaced from 0 to 1).
   curve_points: 101
+
+dropout:
+  # Retrain these Phase 2 winners (same hyperparameters) on rows with evidences dropped.
+  models: [logreg, xgboost]
+  # Each augmented row draws its own dropout rate uniformly from this range, then drops each
+  # evidence other than the initial one with that probability, so training covers both
+  # few-symptom and many-symptom patients. Use [r, r] for a fixed rate.
+  rate_range: [0.5, 0.95]
+  # Dropped copies per training patient, added to the original rows.
+  copies: 1
+  # Keep the complete rows too, so full-evidence accuracy is preserved.
+  keep_original: true
+  experiment: beaconai-phase3b
+
+final_eval:
+  # The one-time test evaluation of the calibrated champion (make eval). Each evaluation name
+  # has its own lock (reports/test_locks/<name>.json), so a later evaluation such as a Phase 8
+  # agent simulation can have its own one-time test run.
+  name: classifier_final
+  experiment: beaconai-final
