@@ -138,7 +138,9 @@ def run_explain(cfg: Config, *, patients: list[PatientEvidence] | None = None) -
     )
     k = abst.differential_size
     ranking = {
-        label: ranking_change_rates(clf.model.predict_proba(X), clf.predict_proba(X), k)
+        label: ranking_change_rates(
+            clf.model.predict_proba(X), clf.predict_proba(X), k, ex.ranking_min_prob
+        )
         for label, X in (("full", held.X), ("partial", partial_X))
     }
 
@@ -177,6 +179,7 @@ def run_explain(cfg: Config, *, patients: list[PatientEvidence] | None = None) -
             "male_share": means[sex_cols[0]["name"]] if sex_cols else None,
         },
         "centering_max_abs_mean": float(np.abs(explainer.W.mean(axis=0)).max()),
+        "ranking_min_prob": ex.ranking_min_prob,
         "ranking": ranking,
         "latency_ms": latency,
         "examples": examples,

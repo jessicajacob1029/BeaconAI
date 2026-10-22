@@ -87,13 +87,29 @@ def global_top_features(
 
 
 def ranking_change_rates(
-    raw_proba: np.ndarray, calibrated_proba: np.ndarray, k: int
+    raw_proba: np.ndarray, calibrated_proba: np.ndarray, k: int, min_prob: float
 ) -> dict[str, float]:
-    """How often calibration changes the top-1 condition, or the set of top-k conditions."""
-    raw_top = top_k_indices(raw_proba, k)
-    cal_top = top_k_indices(calibrated_proba, k)
+    """How often calibration changes what the user sees, compared with the model's own order.
+
+    The calibrated order breaks ties by the model's own score, as predictions do.
+    - top1_changed: the top condition differs.
+    - topk_set_changed: the set of top-k conditions differs.
+    - shown_set_changed: the set differs among conditions with probability >= min_prob (raw
+      for the model's set, calibrated for the shown set): the items an API would display.
+    """
+    raw = np.asarray(raw_proba, dtype=np.float64)
+    cal = np.asarray(calibrated_proba, dtype=np.float64)
+    raw_top = top_k_indices(raw, k)
+    cal_top = top_k_indices(cal, k, tie_break=raw)
     top1 = raw_top[:, 0] != cal_top[:, 0]
-    sets = np.array(
-        [set(r) != set(c) for r, c in zip(raw_top.tolist(), cal_top.tolist(), strict=True)]
-    )
-    return {"top1_changed": float(top1.mean()), "topk_set_changed": float(sets.mean())}
+    sets, shown = [], []
+    for i, (r, c) in enumerate(zip(raw_top.tolist(), cal_top.tolist(), strict=True)):
+        sets.append(set(r) != set(c))
+        shown.append(
+            {j for j in r if raw[i, j] >= min_prob} != {j for j in c if cal[i, j] >= min_prob}
+        )
+    return {
+        "top1_changed": float(top1.mean()),
+        "topk_set_changed": float(np.mean(sets)),
+        "shown_set_changed": float(np.mean(shown)),
+    }

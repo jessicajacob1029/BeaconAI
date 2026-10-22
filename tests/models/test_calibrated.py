@@ -125,3 +125,20 @@ def test_abstain_message_uses_three_decimals() -> None:
     pred = to_prediction(np.array([0.835, 0.1, 0.065]), LABELS, k=3, threshold=0.84)
     assert isinstance(pred, Abstain)
     assert "0.835" in pred.reason and "0.840" in pred.reason
+
+
+def test_ties_after_calibration_are_broken_by_the_model_score() -> None:
+    from beaconai.models.calibrators import calibrator_from_dict
+
+    clf = _classifier()
+    # Calibration maps every class to 0.3 below 0.9: a real (non-zero) tie after calibration.
+    flat = {"method": "isotonic", "x": [[0.0, 0.9, 1.0]] * 2, "y": [[0.3, 0.3, 1.0]] * 2}
+    tied = CalibratedClassifier(
+        clf.model, calibrator_from_dict(flat), LABELS[:2], clf.feature_names, 0.0, 2, clf.encoder
+    )
+    # Leans to class 1 (raw about 0.23 vs 0.77): both map to 0.3, so ID order would show class 0.
+    evidence = PatientEvidence(evidence=["E_2"], age=40, sex="F")
+    raw = clf.model.predict_proba(tied.encode(evidence))[0]
+    pred = tied.predict_differential(evidence)
+    assert int(np.argmax(raw)) == 1  # precondition
+    assert pred.items[0].condition == "Unstable angina"

@@ -178,6 +178,9 @@ explain:
     - Croup
   # Flag a top feature seen in fewer than this share of patients with the condition.
   min_prevalence: 0.01
+  # When measuring how calibration changes the ranking, conditions below this probability count
+  # as not shown (matches the planned API display rule, min_display_prob 0.01).
+  ranking_min_prob: 0.01
   # End-to-end explain call (encode, calibrated predict, explain) on real validation patients.
   latency_budget_ms: 50
   latency_calls: 300

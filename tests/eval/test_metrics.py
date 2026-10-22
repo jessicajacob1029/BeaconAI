@@ -142,3 +142,15 @@ def test_evaluate_predictions_keys() -> None:
 def test_evaluate_predictions_without_ddx() -> None:
     res = evaluate_predictions(Y, PROBA, None, ks=[1], ddx_ks=[3])
     assert "ddx_precision_at3" not in res.metrics
+
+
+def test_top_k_tie_break_uses_secondary_scores() -> None:
+    proba = np.array([[0.9, 0.0, 0.0, 0.1]])  # classes 1 and 2 tie at 0
+    raw = np.array([[0.8, 0.05, 0.15, 0.0]])
+    assert top_k_indices(proba, 3, tie_break=raw).tolist() == [[0, 3, 2]]
+    assert top_k_indices(proba, 3).tolist() == [[0, 3, 1]]  # without: lower class id
+
+
+def test_top_k_tie_break_shape_mismatch_raises() -> None:
+    with pytest.raises(ValueError):
+        top_k_indices(np.ones((1, 3)), 2, tie_break=np.ones((1, 4)))

@@ -69,17 +69,21 @@ def render_explainability(summary: dict[str, Any], *, review_md: str | None) -> 
         "",
         "## Does calibration change the ranking?",
         "",
-        "Held-out validation patients, how often the order shown to the user (after "
-        "calibration) differs from the model's own score order:",
+        "Held-out validation patients: how often the order shown to the user (calibrated, with "
+        "exact ties broken by the model's own score) differs from the model's own order.",
         "",
-        "| Evidence | Top-1 changed | Top-3 set changed |",
-        "|---|---:|---:|",
-        f"| Full evidence | {rank['full']['top1_changed']:.1%} | "
-        f"{rank['full']['topk_set_changed']:.1%} |",
-        f"| Partial evidence | {rank['partial']['top1_changed']:.1%} | "
-        f"{rank['partial']['topk_set_changed']:.1%} |",
+        "| Evidence | Top-1 changed | Top-3 set changed | Shown set changed "
+        f"(conditions at {summary['ranking_min_prob']:.0%} or more) |",
+        "|---|---:|---:|---:|",
+        *[
+            f"| {label} | {rank[key]['top1_changed']:.1%} | {rank[key]['topk_set_changed']:.1%} "
+            f"| {rank[key]['shown_set_changed']:.2%} |"
+            for label, key in (("Full evidence", "full"), ("Partial evidence", "partial"))
+        ],
         "",
-        "When the top two are flipped, the contrast says so (`ranking_changed_by_calibration`).",
+        "Isotonic calibration maps many small probabilities to the same value, so most changes "
+        "in the top-3 set are among conditions the user would not be shown. When the top two "
+        "are flipped, the contrast says so (`ranking_changed_by_calibration`).",
         "",
         "## Latency",
         "",

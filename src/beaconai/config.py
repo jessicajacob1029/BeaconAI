@@ -223,6 +223,8 @@ class ExplainConfig(_StrictModel):
     global_top: int = Field(default=10, ge=1)
     global_conditions: list[str]
     min_prevalence: float = Field(default=0.01, ge=0, le=1)
+    # Conditions below this probability are treated as not shown when measuring ranking changes.
+    ranking_min_prob: float = Field(default=0.01, ge=0, le=1)
     latency_budget_ms: float = Field(default=50, gt=0)
     latency_calls: int = Field(default=300, ge=1)
     experiment: str = "beaconai-phase4"

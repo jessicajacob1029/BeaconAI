@@ -84,6 +84,7 @@ def _cfg(tmp_path: Path, conditions: list[str]):
         global_top=4,
         global_conditions=conditions,
         min_prevalence=0.01,
+        ranking_min_prob=0.01,
         latency_budget_ms=50,
         latency_calls=5,
         experiment="explain-test",

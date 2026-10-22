@@ -28,12 +28,21 @@ def check_inputs(y_true: np.ndarray, proba: np.ndarray) -> tuple[np.ndarray, np.
     return y, p
 
 
-def top_k_indices(proba: np.ndarray, k: int) -> np.ndarray:
-    """Top-k class ids per row, highest first. Stable sort: ties go to the lower class id."""
+def top_k_indices(proba: np.ndarray, k: int, tie_break: np.ndarray | None = None) -> np.ndarray:
+    """Top-k class ids per row, highest first.
+
+    Equal probabilities are ordered by `tie_break` (for example the model's uncalibrated
+    scores) when given, then by the lower class id.
+    """
     p = np.asarray(proba, dtype=np.float64)
     if not 1 <= k <= p.shape[1]:
         raise ValueError(f"k must be in [1, {p.shape[1]}], got {k}")
-    return np.argsort(-p, axis=1, kind="stable")[:, :k]
+    if tie_break is None:
+        return np.argsort(-p, axis=1, kind="stable")[:, :k]
+    t = np.asarray(tie_break, dtype=np.float64)
+    if t.shape != p.shape:
+        raise ValueError(f"tie_break shape {t.shape} does not match proba shape {p.shape}")
+    return np.lexsort((-t, -p), axis=-1)[:, :k]
 
 
 def top_k_accuracy(y_true: np.ndarray, proba: np.ndarray, k: int) -> float:

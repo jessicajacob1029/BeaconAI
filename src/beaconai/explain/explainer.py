@@ -175,9 +175,13 @@ class ChampionExplainer:
     def explain_row(self, x_row: sparse.csr_matrix) -> ExplainedPrediction:
         row = sparse.csr_matrix(x_row)
         values = self._values(row)
-        proba = self.clf.predict_proba(row)[0]
-        prediction = to_prediction(proba, self.clf.labels, self.clf.k, self.clf.threshold)
-        shown = [int(c) for c in top_k_indices(proba[None, :], self.clf.k)[0]]
+        raw = self.clf.model.predict_proba(row)
+        proba = self.clf.calibrator.transform(raw)[0]
+        prediction = to_prediction(
+            proba, self.clf.labels, self.clf.k, self.clf.threshold, tie_break=raw[0]
+        )
+        # Same order as the prediction: calibrated probability, ties by the model's own score.
+        shown = [int(c) for c in top_k_indices(proba[None, :], self.clf.k, tie_break=raw)[0]]
         z = logits(self.W, self.b, row)
 
         explanations = []
