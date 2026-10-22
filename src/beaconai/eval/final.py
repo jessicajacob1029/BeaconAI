@@ -131,10 +131,14 @@ def run_final_evaluation(cfg: Config) -> Path:
     abstention: dict[str, dict[str, Any]] = {}
     confusion = None
     for key, X in (("full", test.X), ("partial", partial_X)):
-        proba = clf.predict_proba(X)
-        result = evaluate_predictions(test.y, proba, test.ddx, eval_cfg.ks, eval_cfg.ddx_ks)
-        metrics[key] = result.metrics | calibration_metrics(test.y, proba, cal_cfg.ece_bins)
-        abstention[key] = answered_at(test.y, proba, clf.threshold, k)
+        proba, raw = clf.predict_raw_and_calibrated(X)
+        result = evaluate_predictions(
+            test.y, proba, test.ddx, eval_cfg.ks, eval_cfg.ddx_ks, tie_break=raw
+        )
+        metrics[key] = result.metrics | calibration_metrics(
+            test.y, proba, cal_cfg.ece_bins, tie_break=raw
+        )
+        abstention[key] = answered_at(test.y, proba, clf.threshold, k, raw)
         if key == "full":
             confusion = result.confusion
 

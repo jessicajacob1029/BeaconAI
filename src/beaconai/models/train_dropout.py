@@ -102,7 +102,10 @@ def run_dropout_training(cfg: Config) -> dict[str, Any]:
             params = train_summary["models"][name]["params"]
             set_global_seed(cfg.seed)
             with mlflow.start_run(run_name=f"{name}+dropout", nested=True) as run:
-                mlflow.set_tags({"model_type": name, "variant": "dropout"})
+                # Same model_type label as calibration and the registry use for this model.
+                mlflow.set_tags(
+                    {"model_type": f"{name}+dropout", "base_model": name, "variant": "dropout"}
+                )
                 mlflow.log_params(
                     {
                         **flatten_params(params),

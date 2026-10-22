@@ -1,4 +1,4 @@
-.PHONY: help setup data eda train train-final train-dropout eval eval-val calibrate test lint format serve ui mlflow
+.PHONY: help setup data eda train train-final train-dropout eval eval-val calibrate explain test lint format serve ui mlflow
 
 # macOS: torch and XGBoost must share torch's OpenMP runtime (see src/beaconai/models/openmp.py).
 ifeq ($(shell uname -s),Darwin)
@@ -25,6 +25,9 @@ train-dropout:  ## Retrain the Phase 2 winners with random evidence dropout (Pha
 
 calibrate:  ## Calibrate on validation, pick the champion by partial-evidence ECE, write reports
 	uv run python -m beaconai.models.calibrate
+
+explain:  ## Explain the champion: global view, ranking changes, latency, sanity check
+	uv run python -m beaconai.explain.run
 
 test:  ## Run the test suite
 	uv run pytest

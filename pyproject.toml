@@ -23,6 +23,7 @@ dev = [
     "pre-commit>=3.7",
     "pytest>=8.2",
     "ruff>=0.6",
+    "shap>=0.46",
 ]
 
 [build-system]
@@ -38,6 +39,8 @@ addopts = "-ra --strict-markers"
 filterwarnings = [
     # Raised inside MLflow's SQLite store, not by project code.
     "ignore:The ``noload`` loader strategy is deprecated:DeprecationWarning",
+    # matplotlib deprecations raised inside shap's own plotting module (shap is test-only here).
+    "ignore::PendingDeprecationWarning:shap.plots.colors._colors",
 ]
 
 [tool.ruff]

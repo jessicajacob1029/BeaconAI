@@ -48,6 +48,9 @@ def test_run_dropout_training(tmp_path: Path) -> None:
     assert len(runs) == 3  # parent + 2 models
     child = runs[runs["tags.mlflow.parentRunId"].notna()]
     assert (child["params.dropout_rate_range"] == "[0.5, 0.95]").all()
+    # Same model_type label as calibration and the registry use for dropout models.
+    assert set(child["tags.model_type"]) == {"logreg+dropout", "xgboost+dropout"}
+    assert set(child["tags.base_model"]) == {"logreg", "xgboost"}
 
 
 def test_refuses_on_data_scope_mismatch(tmp_path: Path) -> None:

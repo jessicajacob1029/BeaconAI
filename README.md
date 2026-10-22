@@ -6,7 +6,7 @@ AI clinical triage assistant: describe symptoms in plain language, get a ranked 
 
 ## Status
 
-Phase 3b (evidence dropout, partial-evidence calibration, final test evaluation) done. Next: explainability.
+Phase 4 (explainability) done. Next: API, Docker, CI quality gate.
 
 ## Quickstart
 
@@ -87,5 +87,32 @@ make eval            # score the calibrated champion on the test split, once (fu
 
 - Dropout fixes the Phase 3 limitation that an unasked question was read as "no": with the initial evidence plus 3 others, top-3 accuracy rises from 0.761 to 0.983. Decision record: `docs/phase3b_dropout.md`.
 - `make eval` scores only `beaconai-classifier@champion` and refuses a raw model, a dev-subsample model, or a second run. Each evaluation name has its own lock in `reports/test_locks/`. Test results: `reports/final_evaluation.md`. Any classifier change after that is validated on validation data only.
+
+## Explanations (Phase 4)
+
+```
+make explain   # global view, ranking checks, latency, and the sanity-check report
+```
+
+```python
+from beaconai.data.preprocess import processed_dir_from_config
+from beaconai.explain.baseline import baseline_vector, load_baseline
+from beaconai.explain.explainer import ChampionExplainer
+from beaconai.explain.labels import FeatureLabeler
+from beaconai.models.dataset import load_features
+
+features = load_features(processed_dir_from_config(cfg.data.paths.processed))
+means, _ = load_baseline("reports/explain_baseline.json")
+enc = cfg.data.encoding
+explainer = ChampionExplainer(
+    clf,  # the champion with an encoder attached (see above)
+    FeatureLabeler(features, enc.scale_max, enc.age_scale),
+    baseline_vector(features, means),
+)
+explainer.explain_evidence(PatientEvidence(evidence=["E_91"], age=34, sex="F"))
+# -> prediction, top 5 supporting / top 3 opposing reasons per condition, and why A rather than B
+```
+
+- Exact for the logistic regression champion, in its logit space before calibration, measured against a patient with no evidence and the training-average age and sex. Report: `reports/explainability.md`. Decision record: `docs/phase4_explainability.md`.
 
 Old code from the previous hospital management app is in `legacy/` and is not used.

@@ -62,11 +62,20 @@ Prediction = Differential | Abstain
 
 
 def to_prediction(
-    proba_row: np.ndarray, labels: list[dict[str, Any]], k: int, threshold: float
+    proba_row: np.ndarray,
+    labels: list[dict[str, Any]],
+    k: int,
+    threshold: float,
+    tie_break: np.ndarray | None = None,
 ) -> Prediction:
-    """Top-k differential, or Abstain when the top-1 probability is below the threshold."""
+    """Top-k differential, or Abstain when the top-1 probability is below the threshold.
+
+    Calibration can make probabilities exactly equal; `tie_break` (the model's uncalibrated
+    scores) then decides the order, instead of the condition's position in labels.json.
+    """
     row = np.asarray(proba_row, dtype=np.float64)
-    top = top_k_indices(row[None, :], k)[0]
+    tb = None if tie_break is None else np.asarray(tie_break, dtype=np.float64)[None, :]
+    top = top_k_indices(row[None, :], k, tie_break=tb)[0]
     best = float(np.clip(row[top[0]], 0.0, 1.0))
     if best < threshold:
         return Abstain(
@@ -124,9 +133,18 @@ class CalibratedClassifier:
         """Calibrated probabilities, shape (n_patients, n_classes)."""
         return self.calibrator.transform(self.model.predict_proba(X))
 
+    def predict_raw_and_calibrated(self, X: Matrix) -> tuple[np.ndarray, np.ndarray]:
+        """(calibrated, raw) probabilities. Use raw as `tie_break` when ranking, so metrics
+        follow the same order as served predictions."""
+        raw = self.model.predict_proba(X)
+        return self.calibrator.transform(raw), raw
+
     def predictions(self, X: Matrix) -> list[Prediction]:
+        raw = self.model.predict_proba(X)
+        calibrated = self.calibrator.transform(raw)
         return [
-            to_prediction(r, self.labels, self.k, self.threshold) for r in self.predict_proba(X)
+            to_prediction(q, self.labels, self.k, self.threshold, tie_break=r)
+            for q, r in zip(calibrated, raw, strict=True)
         ]
 
     def encode(self, evidence: PatientEvidence) -> sparse.csr_matrix:

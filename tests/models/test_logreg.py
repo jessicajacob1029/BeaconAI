@@ -38,3 +38,24 @@ def test_logreg_save_load_round_trip(toy_processed: Path, tmp_path: Path) -> Non
     X = load_split(toy_processed, "test").X
     assert loaded.name == "logreg" and loaded.params == model.params
     np.testing.assert_array_equal(loaded.predict_proba(X), model.predict_proba(X))
+
+
+def test_linear_parameters_reproduce_predict_proba(toy_processed: Path) -> None:
+    model = _fit(toy_processed)
+    W, b = model.linear_parameters()
+    X = load_split(toy_processed, "test").X
+    z = np.asarray(X @ W.T) + b
+    p = np.exp(z - z.max(axis=1, keepdims=True))
+    p /= p.sum(axis=1, keepdims=True)
+    # float32 features: scikit-learn and numpy round differently around 1e-8.
+    np.testing.assert_allclose(p, model.predict_proba(X), rtol=1e-6)
+
+
+def test_linear_parameters_need_every_class(toy_processed: Path) -> None:
+    import pytest
+
+    train = load_split(toy_processed, "train")
+    keep = train.y != 2
+    model = build_model("logreg", {}, 3, 42).fit(train.X[keep], train.y[keep])
+    with pytest.raises(ValueError, match="missing"):
+        model.linear_parameters()

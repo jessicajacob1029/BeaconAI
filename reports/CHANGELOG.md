@@ -63,3 +63,14 @@
 - Metrics (validation held-out half, initial + 3 evidences): top-3 0.761 to 0.983, top-1 0.609 to 0.898, ECE 0.082 to 0.0027. Full evidence: top-3 1.000, ECE 0.0009. Initial evidence only: top-3 0.188 to 0.585.
 - **Test (scored once, 134,529 patients):** full evidence top-1 0.995, top-3 1.000, ECE 0.0010; initial + 3 evidences top-1 0.899, top-3 0.984, ECE 0.0028; at threshold 0.60, 89.6% of partial-evidence patients answered with top-3 0.999.
 - Decision record: `docs/phase3b_dropout.md`.
+
+## Phase 4: Explainability (2026-10-22)
+
+- Exact explanations for the calibrated logistic regression champion. Each contribution is `coef[c, j] * (x[j] - m[j])` in logit space, before isotonic calibration, and baseline score plus contributions equals the model's score. A test cross-checks every contribution against `shap.LinearExplainer` with the same baseline.
+- Baseline patient: no evidence, and the training-set mean for age and sex (average age 39.7, 49% male, from 1,025,602 training patients; `reports/explain_baseline.json`). Age and sex are each reported as one grouped contribution.
+- `ChampionExplainer.explain_evidence` returns the prediction, the top 5 supporting and top 3 opposing contributors per shown condition, and a contrast "why A rather than B" for the top two.
+- Calibrated ties are now broken by the model's own score in `predict_differential` and in explanations. Before this, slots 2 and 3 and the contrast's runner-up were often chosen by label order: 99.9% of held-out patients had a tied third slot.
+- Metrics (full data, held-out validation): calibration changes the top-1 for 0.05% (full evidence) and 1.5% (partial evidence) of patients, and the shown set (conditions at 1% or more) for 0.05% and 4.0%. Latency end to end: median 0.6 ms, p95 0.7 ms (budget 50 ms). Automatic sanity flags: 2 of 80 top features (croup age, expected).
+- Global view plots for 8 conditions, plus an author review (not clinically validated) noting a DDXPlus quirk: skin and rash questions rank high for pneumonia and influenza.
+- MLflow tags unified for dropout models (`phase` "3b", `model_type` "logreg+dropout").
+- Decision record: `docs/phase4_explainability.md`.

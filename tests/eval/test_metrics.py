@@ -142,3 +142,32 @@ def test_evaluate_predictions_keys() -> None:
 def test_evaluate_predictions_without_ddx() -> None:
     res = evaluate_predictions(Y, PROBA, None, ks=[1], ddx_ks=[3])
     assert "ddx_precision_at3" not in res.metrics
+
+
+def test_top_k_tie_break_uses_secondary_scores() -> None:
+    proba = np.array([[0.9, 0.0, 0.0, 0.1]])  # classes 1 and 2 tie at 0
+    raw = np.array([[0.8, 0.05, 0.15, 0.0]])
+    assert top_k_indices(proba, 3, tie_break=raw).tolist() == [[0, 3, 2]]
+    assert top_k_indices(proba, 3).tolist() == [[0, 3, 1]]  # without: lower class id
+
+
+def test_top_k_tie_break_shape_mismatch_raises() -> None:
+    with pytest.raises(ValueError):
+        top_k_indices(np.ones((1, 3)), 2, tie_break=np.ones((1, 4)))
+
+
+def test_top_k_accuracy_with_tie_break() -> None:
+    proba = np.array([[0.9, 0.05, 0.05]])  # classes 1 and 2 tie
+    raw = np.array([[0.8, 0.05, 0.15]])
+    y = np.array([2])
+    assert top_k_accuracy(y, proba, 2) == 0.0  # label order picks class 1
+    assert top_k_accuracy(y, proba, 2, tie_break=raw) == 1.0  # served order picks class 2
+
+
+def test_evaluate_predictions_threads_tie_break() -> None:
+    proba = np.array([[0.9, 0.05, 0.05]])
+    raw = np.array([[0.8, 0.05, 0.15]])
+    ddx = sparse.csr_matrix(np.array([[0.5, 0.0, 0.5]]))
+    res = evaluate_predictions(np.array([2]), proba, ddx, ks=[2], ddx_ks=[2], tie_break=raw)
+    assert res.metrics["top2_accuracy"] == 1.0
+    assert res.metrics["ddx_precision_at2"] == 1.0  # {0, 2} both in the reference
