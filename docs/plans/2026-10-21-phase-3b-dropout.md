@@ -31,6 +31,12 @@ Context: `docs/phase3_calibration.md`, the `ROADMAP.md` note before Phase 8.
 - On macOS run Python through `make`.
 - Phase ends with tests passing, lint clean, a CHANGELOG entry with key metrics, and a commit.
 
+## Amendments after review (these override the tasks below)
+
+1. **Dropout rate drawn per augmented row.** Config `dropout.rate_range: [0.5, 0.95]` replaces `dropout.rate`. Every augmented row (one dropped copy of one patient) draws its own rate uniformly from the range, then drops each non-initial evidence with that probability. Training therefore covers both few-symptom and many-symptom situations. `evidence_dropout(X, initial, col_evidence, rate_range, seed)`. A fixed rate is `(r, r)`.
+2. **Evidence-count curve.** Config `calibration.evidence_curve: [0, 1, 2, 3, 5, 8, 12]`. For each value n, the held-out half keeps the initial evidence plus n other random evidences (same rule and seed as the partial-evidence evaluation). Top-3 accuracy and ECE are computed for the 3b champion and, when the Phase 3 baseline has the same data scope, for the Phase 3 champion. The report gets a table and the figure `reports/figures/evidence_curve{sfx}.png`, and the summary gets `evidence_curve`.
+3. **Test lock per evaluation name.** Config `final_eval.name: classifier_final`. The lock is `reports/test_locks/<name>.json`, so a later evaluation (for example a Phase 8 agent simulation) can have its own one-time test run. The final report states: any classifier change after this point is validated on validation data only.
+
 ## Method decisions (confirm at review)
 
 1. **Dropout rule.** For every training patient, the initial evidence, age and sex are always kept. Every other evidence (a whole question with all its values) is dropped independently with probability `dropout.rate` (default 0.75). The training set is the original rows plus `dropout.copies` (default 1) dropped copies, each with a different seed. A patient has about 19 evidence tokens on average, so a dropped copy keeps the initial evidence plus about 4 others. That is close to the evaluation setting (initial plus 3) but varies from patient to patient. Keeping the original rows preserves full-evidence accuracy.
