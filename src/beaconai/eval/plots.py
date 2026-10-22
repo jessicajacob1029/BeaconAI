@@ -107,3 +107,24 @@ def plot_evidence_curve(series: dict[str, dict], path: Path, title: str) -> Path
         ax.legend(fontsize=8)
     fig.suptitle(title)
     return _save(fig, path)
+
+
+def plot_top_features(features: list, condition: str, path: Path) -> Path:
+    """Top coefficients for one condition; hatched bars carry an automatic sanity flag.
+
+    `features` are objects with `label`, `coef` and `flags` (explain.global_view.TopFeature).
+    """
+    items = list(reversed(features))  # largest at the top
+    fig, ax = plt.subplots(figsize=(9, max(3.0, 0.45 * len(items) + 1)))
+    labels = [f.label if len(f.label) <= 70 else f.label[:67] + "..." for f in items]
+    bars = ax.barh(range(len(items)), [f.coef for f in items], color="#4c72b0")
+    for bar, f in zip(bars, items, strict=True):
+        if f.flags:
+            bar.set_hatch("//")
+            bar.set_facecolor("#dd8452")
+    ax.set_yticks(range(len(items)), labels, fontsize=7)
+    ax.set_xlabel(
+        "Coefficient (logit contribution when present, relative to the average condition)"
+    )
+    ax.set_title(f"{condition}: top features (hatched = flagged for review)")
+    return _save(fig, path)
