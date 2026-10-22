@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ import mlflow
 import mlflow.pyfunc
 import numpy as np
 import pandas as pd
+from scipy import sparse
 
 from beaconai.config import (
     AbstentionConfig,
@@ -39,7 +41,7 @@ from beaconai.eval.calibration import (
 from beaconai.eval.calibration_report import render_calibration
 from beaconai.eval.metrics import top_k_accuracy
 from beaconai.eval.partial import column_evidence, partial_evidence
-from beaconai.eval.plots import plot_coverage, plot_reliability
+from beaconai.eval.plots import plot_coverage, plot_evidence_curve, plot_reliability
 from beaconai.models.base import ModelWrapper
 from beaconai.models.calibrated import CalibratedClassifier
 from beaconai.models.calibrators import Calibrator, TemperatureCalibrator, make_calibrator
@@ -61,8 +63,10 @@ from beaconai.models.train import (
     load_wrapper,
     register_version,
 )
+from beaconai.models.train_dropout import DROPOUT_SUMMARY_FILE
 
 TOP3 = 3
+BASELINE_FILE = "phase3_baseline_summary.json"
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,7 @@ class CalibrationResult:
     model_uri: str
     metrics: dict[str, float]
     temperature: float | None
+    fit_on: str = "full"
 
 
 def calibration_metrics(y: np.ndarray, proba: np.ndarray, n_bins: int) -> dict[str, float]:
@@ -120,12 +125,11 @@ def _log_candidate(
     feature_names: list[str],
     abst: AbstentionConfig,
     held: SplitData,
+    fit_on: str,
 ) -> CalibrationResult:
     temperature = calibrator.temperature if isinstance(calibrator, TemperatureCalibrator) else None
-    with mlflow.start_run(run_name=f"{name}-{method}", nested=True) as run:
-        mlflow.set_tags(
-            {"model_type": name, "calibration": method, "fit_on": "validate (fit part)"}
-        )
+    with mlflow.start_run(run_name=f"{name}-{method}-{fit_on}", nested=True) as run:
+        mlflow.set_tags({"model_type": name, "calibration": method, "calibrated_on": fit_on})
         mlflow.log_params({"method": method, "temperature": temperature})
         mlflow.log_metrics(metrics)
         clf = CalibratedClassifier(
@@ -137,7 +141,7 @@ def _log_candidate(
             rows = held.X[:5]
             example = pd.DataFrame(rows.toarray().astype(np.float32), columns=feature_names)
             uri = log_pyfunc(CalibratedPyfunc(), model_dir, example, clf.predict_proba(rows))
-    return CalibrationResult(name, method, run.info.run_id, uri, metrics, temperature)
+    return CalibrationResult(name, method, run.info.run_id, uri, metrics, temperature, fit_on)
 
 
 def answered_at(y: np.ndarray, proba: np.ndarray, threshold: float, k: int) -> dict[str, Any]:
@@ -154,6 +158,44 @@ def answered_at(y: np.ndarray, proba: np.ndarray, threshold: float, k: int) -> d
             f"No patients are answered at threshold {threshold:.3f}; accuracy is undefined."
         )
     return out
+
+
+def evidence_curve(
+    predict_proba: Callable[[sparse.csr_matrix], np.ndarray],
+    X: sparse.csr_matrix,
+    y: np.ndarray,
+    initial_evidence: np.ndarray,
+    col_evidence: np.ndarray,
+    extras: list[int],
+    seed: int,
+    n_bins: int,
+) -> dict[str, Any]:
+    """Top-3 accuracy and ECE when patients keep the initial evidence plus n other evidences."""
+    top3, ece = [], []
+    for n in extras:
+        proba = predict_proba(partial_evidence(X, initial_evidence, col_evidence, n, seed))
+        m = calibration_metrics(y, proba, n_bins)
+        top3.append(m["top3_accuracy"])
+        ece.append(m["ece"])
+    return {"extra": list(extras), "top3_accuracy": top3, "ece": ece}
+
+
+def _base_models(
+    cfg: Config, train_summary: dict[str, Any], reports: Path, dev_sample: int | None
+) -> list[tuple[str, str]]:
+    """(label, model_uri) for every base model to calibrate: Phase 2 models and dropout retrains."""
+    cal_cfg, _ = require_calibration(cfg)
+    bases: list[tuple[str, str]] = []
+    if "baseline" in cal_cfg.variants:
+        bases += [(m, train_summary["models"][m]["model_uri"]) for m in cal_cfg.models]
+    if "dropout" in cal_cfg.variants:
+        path = reports / DROPOUT_SUMMARY_FILE
+        if not path.is_file():
+            raise FileNotFoundError(f"{path} not found. Run `make train-dropout` first.")
+        dropout_summary = json.loads(path.read_text(encoding="utf-8"))
+        check_data_scope(dropout_summary["dev_sample"], dev_sample)
+        bases += [(f"{m}+dropout", v["model_uri"]) for m, v in dropout_summary["models"].items()]
+    return bases
 
 
 def run_calibration(cfg: Config) -> dict[str, Any]:
@@ -189,6 +231,21 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         held.y,
         held.ddx,
     )
+    cols = column_evidence(features)
+    extra = cal_cfg.partial_evidence.extra_evidences
+    # Partial-evidence version of the fit half, for calibrators fit on partial rows.
+    fit_partial = SplitData(
+        partial_evidence(fit.X, meta["initial_evidence"][fit_idx], cols, extra, cfg.seed),
+        fit.y,
+        None,
+    )
+    bases = _base_models(cfg, train_summary, reports, dev_sample)
+    baseline_path = reports / BASELINE_FILE
+    baseline = (
+        json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.is_file() else None
+    )
+    if baseline is not None and baseline.get("dev_sample") != dev_sample:
+        baseline = None  # never compare dev numbers with full-data numbers
     sfx = "" if dev_sample is None else "_dev"
     figures = reports / "figures"
     k = abst.differential_size
@@ -197,7 +254,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
 
     results: list[CalibrationResult] = []
     reliability_images: dict[str, str] = {}
-    with mlflow.start_run(run_name="phase3-calibrate") as parent:
+    with mlflow.start_run(run_name="calibrate") as parent:
         mlflow.set_tags(
             {
                 "dev_sample": str(dev_sample),
@@ -218,32 +275,49 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
                 "n_held": len(held_idx),
             }
         )
-        for name in cal_cfg.models:
-            base = load_wrapper(train_summary["models"][name]["model_uri"])
-            raw_fit = base.predict_proba(fit.X)
+        for name, base_uri in bases:
+            base = load_wrapper(base_uri)
+            raw = {
+                "full": base.predict_proba(fit.X),
+                "partial": base.predict_proba(fit_partial.X),
+            }
             raw_held = base.predict_proba(held.X)
             raw_partial = base.predict_proba(partial.X)
             panels: dict[str, dict[str, Any]] = {"Full evidence": {}, "Partial evidence": {}}
-            for method in cal_cfg.methods:
-                calibrator = make_calibrator(method, cal_cfg.temperature_bounds)
-                calibrator.fit(raw_fit, fit.y)
-                q_held, q_partial = (
-                    calibrator.transform(raw_held),
-                    calibrator.transform(raw_partial),
-                )
-                metrics = calibration_metrics(held.y, q_held, cal_cfg.ece_bins)
-                partial_metrics = calibration_metrics(partial.y, q_partial, cal_cfg.ece_bins)
-                metrics |= {f"partial_{key}": v for key, v in partial_metrics.items()}
-                panels["Full evidence"][method] = reliability_bins(held.y, q_held, cal_cfg.ece_bins)
-                panels["Partial evidence"][method] = reliability_bins(
-                    partial.y, q_partial, cal_cfg.ece_bins
-                )
-                results.append(
-                    _log_candidate(
-                        name, method, base, calibrator, metrics, labels, feature_names, abst, held
+            for fit_on in cal_cfg.fit_on:
+                for method in cal_cfg.methods:
+                    if method == "none" and fit_on != cal_cfg.fit_on[0]:
+                        continue  # raw probabilities do not depend on the fit rows
+                    calibrator = make_calibrator(method, cal_cfg.temperature_bounds).fit(
+                        raw[fit_on], fit.y
                     )
-                )
-            image = f"reliability_{name}{sfx}.png"
+                    q_held = calibrator.transform(raw_held)
+                    q_partial = calibrator.transform(raw_partial)
+                    metrics = calibration_metrics(held.y, q_held, cal_cfg.ece_bins)
+                    partial_m = calibration_metrics(partial.y, q_partial, cal_cfg.ece_bins)
+                    metrics |= {f"partial_{key}": v for key, v in partial_m.items()}
+                    label = method if method == "none" else f"{method} ({fit_on})"
+                    panels["Full evidence"][label] = reliability_bins(
+                        held.y, q_held, cal_cfg.ece_bins
+                    )
+                    panels["Partial evidence"][label] = reliability_bins(
+                        partial.y, q_partial, cal_cfg.ece_bins
+                    )
+                    results.append(
+                        _log_candidate(
+                            name,
+                            method,
+                            base,
+                            calibrator,
+                            metrics,
+                            labels,
+                            feature_names,
+                            abst,
+                            held,
+                            fit_on,
+                        )
+                    )
+            image = f"reliability_{name.replace('+', '_')}{sfx}.png"
             path = plot_reliability(panels, figures / image, f"{name}: reliability (held-out)")
             mlflow.log_artifact(str(path))
             reliability_images[name] = f"figures/{image}"
@@ -276,7 +350,48 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
                 **({"suggested_threshold": suggested} if suggested is not None else {}),
             }
         )
-        mlflow.set_tags({"champion_model": champion.model, "champion_method": champion.method})
+        held_initial = meta["initial_evidence"][held_idx]
+        curve = {
+            "extra": list(cal_cfg.evidence_curve),
+            "champion": evidence_curve(
+                clf.predict_proba,
+                held.X,
+                held.y,
+                held_initial,
+                cols,
+                cal_cfg.evidence_curve,
+                cfg.seed,
+                cal_cfg.ece_bins,
+            ),
+            "phase3_champion": None,
+        }
+        if baseline is not None:
+            old_clf = load_calibrated(baseline["champion"]["model_uri"])
+            curve["phase3_champion"] = evidence_curve(
+                old_clf.predict_proba,
+                held.X,
+                held.y,
+                held_initial,
+                cols,
+                cal_cfg.evidence_curve,
+                cfg.seed,
+                cal_cfg.ece_bins,
+            )
+        curve_image = f"evidence_curve{sfx}.png"
+        if cal_cfg.evidence_curve:
+            series = {"Phase 3b champion": curve["champion"]}
+            if curve["phase3_champion"] is not None:
+                series = {"Phase 3 champion": curve["phase3_champion"], **series}
+            mlflow.log_artifact(
+                str(plot_evidence_curve(series, figures / curve_image, "Known evidences"))
+            )
+        mlflow.set_tags(
+            {
+                "champion_model": champion.model,
+                "champion_method": champion.method,
+                "champion_calibrated_on": champion.fit_on,
+            }
+        )
 
     version, alias = register_version(
         champion.model_uri,
@@ -285,9 +400,10 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         {
             "model_type": champion.model,
             "calibration": champion.method,
+            "calibrated_on": champion.fit_on,
             "held_out_partial_ece": f"{champion.metrics['partial_ece']:.5f}",
             "held_out_ece": f"{champion.metrics['ece']:.5f}",
-            "phase": "3",
+            "phase": "3b" if "dropout" in cal_cfg.variants else "3",
         },
     )
     summary = {
@@ -300,6 +416,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         "champion": {
             "model": champion.model,
             "method": champion.method,
+            "fit_on": champion.fit_on,
             "run_id": champion.run_id,
             "model_uri": champion.model_uri,
             "metrics": champion.metrics,
@@ -309,6 +426,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             {
                 "model": r.model,
                 "method": r.method,
+                "fit_on": r.fit_on,
                 "temperature": r.temperature,
                 "metrics": r.metrics,
             }
@@ -322,6 +440,7 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
             "full": full_at,
             "partial": partial_at,
         },
+        "evidence_curve": curve,
     }
     reports.mkdir(parents=True, exist_ok=True)
     (reports / f"calibration_summary{sfx}.json").write_text(
@@ -334,6 +453,8 @@ def run_calibration(cfg: Config) -> dict[str, Any]:
         ece_bins=cal_cfg.ece_bins,
         reliability_images=reliability_images,
         coverage_image=f"figures/{coverage_image}",
+        baseline=baseline,
+        curve_image=f"figures/{curve_image}" if cal_cfg.evidence_curve else None,
     )
     (reports / f"calibration{sfx}.md").write_text(md, encoding="utf-8")
     return summary

@@ -103,3 +103,39 @@ def test_report_states_held_out_caveat() -> None:
     assert "not fully independent" in md
     assert "early stopping" in md
     assert "confirmed on the test split" in md
+
+
+CURVE = {
+    "extra": [0, 3, 12],
+    "champion": {"top3_accuracy": [0.5, 0.8, 0.99], "ece": [0.05, 0.03, 0.01]},
+    "phase3_champion": {"top3_accuracy": [0.4, 0.76, 0.99], "ece": [0.2, 0.08, 0.01]},
+}
+
+
+def test_fit_on_column_and_baseline_comparison() -> None:
+    new = {
+        **SUMMARY,
+        "candidates": [
+            {**c, "fit_on": "partial"} if c["method"] == "temperature" else c
+            for c in SUMMARY["candidates"]
+        ],
+        "champion": {**SUMMARY["champion"], "fit_on": "partial"},
+        "evidence_curve": CURVE,
+    }
+    md = render_calibration(
+        new, ece_bins=15, reliability_images={}, coverage_image="figures/c.png", baseline=SUMMARY
+    )
+    assert "| Calibrated on |" in md and "| partial |" in md
+    assert "## Comparison with the Phase 3 baseline" in md
+    assert "Phase 3 champion" in md and "Phase 3b champion" in md
+    assert "## Accuracy and calibration by number of known evidences" in md
+    assert "| 3 | 0.760 | 0.800 | 0.0800 | 0.0300 |" in md
+
+
+def test_no_comparison_across_data_scopes() -> None:
+    dev = {**SUMMARY, "dev_sample": 50000, "evidence_curve": {**CURVE, "phase3_champion": None}}
+    md = render_calibration(
+        dev, ece_bins=15, reliability_images={}, coverage_image="c.png", baseline=SUMMARY
+    )
+    assert "## Comparison with the Phase 3 baseline" not in md
+    assert "| 3 | 0.800 | 0.0300 |" in md  # curve for the new champion only

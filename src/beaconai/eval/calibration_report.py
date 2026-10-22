@@ -23,16 +23,91 @@ def eligibility(metrics: dict[str, float], floor: dict[str, float]) -> str:
 
 
 def _evidence_table(candidates: list[dict[str, Any]], prefix: str, extra: str) -> list[str]:
-    header = "| Model | Method | ECE | NLL | Top-1 | Top-3 | " + extra + " |"
-    rows = [header, "|---|---|---:|---:|---:|---:|---|"]
+    header = "| Model | Method | ECE | NLL | Top-1 | Top-3 | " + extra + " | Calibrated on |"
+    rows = [header, "|---|---|---:|---:|---:|---:|---|---|"]
     for c in candidates:
         m = c["metrics"]
         rows.append(
             f"| {c['model']} | {c['method']} | {_f(m[prefix + 'ece'], 4)} | "
             f"{_f(m[prefix + 'nll'])} | {_f(m[prefix + 'top1_accuracy'])} | "
-            f"{_f(m[prefix + 'top3_accuracy'])} | {c['_extra']} |"
+            f"{_f(m[prefix + 'top3_accuracy'])} | {c['_extra']} | {c.get('fit_on', 'full')} |"
         )
     return rows
+
+
+def _same(c: dict[str, Any], ref: dict[str, Any]) -> bool:
+    key = ("model", "method")
+    return all(c[k] == ref[k] for k in key) and c.get("fit_on", "full") == ref.get("fit_on", "full")
+
+
+def _comparison(summary: dict[str, Any], baseline: dict[str, Any]) -> list[str]:
+    def row(label: str, c: dict[str, Any]) -> str:
+        m = c["metrics"]
+        return (
+            f"| {label} | {c['model']} | {c['method']} | {c.get('fit_on', 'full')} | "
+            f"{_f(m['partial_ece'], 4)} | {_f(m['partial_top3_accuracy'])} | "
+            f"{_f(m['ece'], 4)} | {_f(m['top3_accuracy'])} |"
+        )
+
+    header = [
+        "| | Model | Method | Calibrated on | ECE partial | Top-3 partial | ECE full "
+        "| Top-3 full |",
+        "|---|---|---|---|---:|---:|---:|---:|",
+    ]
+    old = next(c for c in baseline["candidates"] if _same(c, baseline["champion"]))
+    new = next(c for c in summary["candidates"] if _same(c, summary["champion"]))
+    return [
+        "## Comparison with the Phase 3 baseline",
+        "",
+        "Same held-out rows and the same partial-evidence rule as Phase 3.",
+        "",
+        *header,
+        row("Phase 3 champion", old),
+        row("Phase 3b champion", new),
+        "",
+        "Phase 3 baseline, all candidates:",
+        "",
+        *header,
+        *[row("Phase 3", c) for c in baseline["candidates"]],
+        "",
+    ]
+
+
+def _curve_section(curve: dict[str, Any], image: str | None) -> list[str]:
+    new, old = curve["champion"], curve.get("phase3_champion")
+    lines = [
+        "## Accuracy and calibration by number of known evidences",
+        "",
+        "Held-out patients keep the initial evidence plus n other random evidences (same rule "
+        "as the partial-evidence evaluation).",
+        "",
+    ]
+    if old is None:
+        lines += ["| Other evidences | Top-3 | ECE |", "|---:|---:|---:|"]
+        lines += [
+            f"| {n} | {_f(t)} | {_f(e, 4)} |"
+            for n, t, e in zip(curve["extra"], new["top3_accuracy"], new["ece"], strict=True)
+        ]
+    else:
+        lines += [
+            "| Other evidences | Top-3 (Phase 3) | Top-3 (Phase 3b) | ECE (Phase 3) "
+            "| ECE (Phase 3b) |",
+            "|---:|---:|---:|---:|---:|",
+        ]
+        lines += [
+            f"| {n} | {_f(ot)} | {_f(nt)} | {_f(oe, 4)} | {_f(ne, 4)} |"
+            for n, ot, nt, oe, ne in zip(
+                curve["extra"],
+                old["top3_accuracy"],
+                new["top3_accuracy"],
+                old["ece"],
+                new["ece"],
+                strict=True,
+            )
+        ]
+    if image:
+        lines += ["", f"![Known evidences]({image})"]
+    return [*lines, ""]
 
 
 def render_calibration(
@@ -41,14 +116,15 @@ def render_calibration(
     ece_bins: int,
     reliability_images: dict[str, str],
     coverage_image: str,
+    baseline: dict[str, Any] | None = None,
+    curve_image: str | None = None,
 ) -> str:
     champ = summary["champion"]
     floor = summary["top3_floor"]
     abst = summary["abstention"]
     candidates = summary["candidates"]
     scope = "dev subsample" if summary["dev_sample"] else "full dataset"
-    by_key = {(c["model"], c["method"]): c for c in candidates}
-    champ_m = by_key[(champ["model"], champ["method"])]["metrics"]
+    champ_m = next(c for c in candidates if _same(c, champ))["metrics"]
 
     out = [
         "# Calibration and abstention",
@@ -68,7 +144,8 @@ def render_calibration(
         "champion and threshold below are chosen on these same rows. Treat the numbers as "
         "somewhat optimistic until they are confirmed on the test split in the final evaluation.",
         "",
-        f"Champion: **{champ['model']} + {champ['method']}**, the lowest partial-evidence ECE "
+        f"Champion: **{champ['model']} + {champ['method']}** (calibrated on "
+        f"{champ.get('fit_on', 'full')} rows), the lowest partial-evidence ECE "
         "among (model, method) pairs whose held-out top-3 accuracy is at least "
         f"{floor['full']:.3f} on full evidence and at least {floor['partial']:.3f} on partial "
         f"evidence. Registered as `{summary['registered']['name']}` version "
@@ -119,6 +196,16 @@ def render_calibration(
         "evidence and 3 others are known. Fixing this needs retraining (random evidence dropout, "
         "or a yes/no/not-asked encoding) before the Phase 8 question selector.",
         "",
+        *(
+            _comparison(summary, baseline)
+            if baseline is not None and baseline.get("dev_sample") == summary["dev_sample"]
+            else []
+        ),
+        *(
+            _curve_section(summary["evidence_curve"], curve_image)
+            if summary.get("evidence_curve")
+            else []
+        ),
         "## Reliability diagrams",
         "",
         *[f"![{name} reliability]({img})" for name, img in reliability_images.items()],
