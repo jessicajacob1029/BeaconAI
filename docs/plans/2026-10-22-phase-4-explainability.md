@@ -30,6 +30,14 @@
 - On macOS run Python through `make`.
 - Phase ends with tests passing, lint clean, a CHANGELOG entry, and a commit.
 
+## Amendments after review (these override the tasks below)
+
+1. **Demographic baseline is the training-set mean.** The baseline vector m is 0 for every evidence column and the training-set mean for every demographic column (age buckets, scaled age, sex). Contributions are `W[c, j] * (x[j] - m[j])`, so demographic columns contribute even when 0 (a female patient gets a sex contribution with the same meaning as a male one). The baseline score is `b[c] + W[c] @ m`, and the exactness check stays: baseline score plus contributions equals the logit. In explanations, all age columns form one "Age" contribution and the sex column one "Sex" contribution (sums of their per-column contributions). The SHAP cross-check uses the background row m.
+   - Means come from the full training set: the `AGE` and `SEX` columns of the raw training CSV, encoded with the Phase 1 age bins and scale. If that file is unavailable (tests), they come from the processed train split's metadata, labeled as such.
+   - Saved to `reports/explain_baseline.json` (committed) so later phases (the API) can load them without the data.
+   - New interfaces: `demographic_means(ages, sexes, features, age_bins, age_scale) -> dict[str, float]` and `baseline_vector(features, means) -> np.ndarray` in `explain/baseline.py`. In `explain/linear.py`, `contributions` and `contrast_contributions` take `baseline: np.ndarray | None` and include every column where x != 0 or m != 0, and `baseline_logits(W, b, m)` is added.
+2. **Sanity review wording.** `docs/phase4_sanity_review.md` opens by stating it is an author review, not clinically validated, and ends with an empty "Reviewer notes" section for the project owner. The executor does not fill it in.
+
 ## Method decisions (confirm at review)
 
 1. **What a single-condition contribution means.** The multinomial coefficients are only defined up to a per-feature constant shared by all conditions; adding the same number to every condition's coefficient changes no probability. The fitted L2 solution is centered, so `coef[c, j] * x[j]` reads as "support for condition c relative to the average condition". The contrast `(coef[A] - coef[B]) * x` has no such ambiguity, which is one more reason it is the headline explanation. Both are stated in docstrings and the report.
