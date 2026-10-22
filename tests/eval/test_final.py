@@ -83,3 +83,29 @@ def test_cli_refusal_exits_2(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr(final, "load_config", lambda: cfg)
     assert final.main() == 2
     assert "Refused" in capsys.readouterr().err
+
+
+def test_lock_is_written_before_scoring_so_a_crash_cannot_allow_a_rerun(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import beaconai.eval.final as final
+
+    cfg = _pipeline(tmp_path)
+
+    def boom(summary):
+        raise RuntimeError("report failed after test predictions were made")
+
+    monkeypatch.setattr(final, "render_final", boom)
+    with pytest.raises(RuntimeError, match="report failed"):
+        run_final_evaluation(cfg)
+    lock = json.loads(lock_path(cfg).read_text())
+    assert lock["status"] == "started"
+    monkeypatch.undo()
+    with pytest.raises(FinalEvalError, match="already"):
+        run_final_evaluation(cfg)
+
+
+def test_completed_lock_records_status(tmp_path: Path) -> None:
+    cfg = _pipeline(tmp_path)
+    run_final_evaluation(cfg)
+    assert json.loads(lock_path(cfg).read_text())["status"] == "completed"

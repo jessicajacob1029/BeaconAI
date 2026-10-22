@@ -150,3 +150,8 @@ def test_suggestion_on_initial_evidence_only_is_described() -> None:
     md = _render({**SUMMARY, "abstention": abst})
     assert "initial evidence plus 0 other evidences" in md
     assert "| Initial evidence + 0 | 30.1% | 0.751 | 0.953 |" in md
+
+
+def test_report_points_at_both_decision_records() -> None:
+    md = _render()
+    assert "docs/phase3_calibration.md" in md and "docs/phase3b_dropout.md" in md

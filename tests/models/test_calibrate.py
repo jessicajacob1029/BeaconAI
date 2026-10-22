@@ -192,7 +192,7 @@ def test_variants_and_partial_rows_full_grid(tmp_path: Path) -> None:
 def test_every_calibrator_is_fit_on_the_fit_half_only(tmp_path: Path, monkeypatch) -> None:
     import beaconai.models.calibrate as calibrate
 
-    seen: list[int] = []
+    seen: list[np.ndarray] = []
     real = calibrate.make_calibrator
 
     class Spy:
@@ -200,12 +200,20 @@ def test_every_calibrator_is_fit_on_the_fit_half_only(tmp_path: Path, monkeypatc
             self.inner = inner
 
         def fit(self, proba, y):
-            seen.append(len(y))
+            seen.append(np.asarray(y).copy())
             return self.inner.fit(proba, y)
 
     monkeypatch.setattr(calibrate, "make_calibrator", lambda m, b: Spy(real(m, b)))
-    summary = run_calibration(_trained(tmp_path, None))
-    assert seen and set(seen) == {summary["n_fit"]}
+    cfg = _trained(tmp_path, None)
+    run_calibration(cfg)
+    val = load_split(tmp_path / "processed" / "ddxplus", "validate")
+    fit_idx, held_idx = split_indices(val.y, cfg.calibration.fit_fraction, cfg.seed)
+    # Precondition: the two halves have different label sequences, so the check below can
+    # tell them apart (equal sizes alone would not).
+    assert not np.array_equal(val.y[fit_idx], val.y[held_idx])
+    assert seen
+    for y in seen:
+        np.testing.assert_array_equal(y, val.y[fit_idx])
 
 
 def test_missing_dropout_summary_when_variant_requested(tmp_path: Path) -> None:

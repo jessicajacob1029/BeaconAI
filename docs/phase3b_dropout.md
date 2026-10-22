@@ -15,7 +15,7 @@ Validation numbers are from `reports/calibration.md` (full dataset, the same hel
 
 Phase 3 found that the models read every unasked question as "no". With only the initial evidence plus 3 others, the Phase 3 champion's top-3 accuracy fell to 0.761.
 
-1. **Evidence dropout during training.** Each training patient is kept as is and also added once with evidences dropped. The initial evidence, age and sex are always kept. Every other evidence (a whole question with all its values) is dropped with a probability that each copied row draws from 0.5 to 0.95. Training therefore covers both few-symptom and many-symptom patients, about 2.05M rows on full data. Hyperparameters are the Phase 2 winners. Early stopping uses only the calibration fit half, never the held-out half.
+1. **Evidence dropout during training.** Each training patient is kept as is and also added once with evidences dropped. The initial evidence, age and sex are always kept. Every other evidence (a whole question with all its values) is dropped with a probability that each copied row draws from 0.5 to 0.95. Training therefore covers both few-symptom and many-symptom patients, about 2.05M rows on full data. Hyperparameters are the Phase 2 winners. Early stopping uses only the calibration fit half, never the held-out half. (It uses the same partial-evidence rows the partial-row calibrators are later fit on. That makes no difference here: XGBoost ran to its round cap, and logistic regression does not early-stop.)
 2. **Calibration fit on partial-evidence rows.** As well as fitting calibrators on the calibration half as is (the Phase 3 behavior), they are also fit on its partial-evidence version.
 
 ## Results on held-out validation (66,223 patients)
@@ -31,6 +31,7 @@ The four corners of the comparison, best method in each:
 
 What this shows:
 
+- **The comparison slightly favors the baseline.** The Phase 2 models early-stopped on all of validation, including the held-out half, which makes the baseline numbers a little optimistic. The dropout models never saw the held-out half. The conclusions below hold despite that.
 - **Dropout does the heavy lifting.** It raises partial-evidence top-3 from 0.761 to 0.983 and top-1 from 0.609 to 0.898. Calibration cannot do that, because it can only reshape probabilities, not fix the ranking.
 - **Partial-row calibration alone helps calibration but not accuracy,** and it can damage full-evidence calibration. For the Phase 2 XGBoost, temperature scaling fit on partial rows pushes full-evidence ECE to 0.85. The dropout models are well calibrated on both settings, so fitting on partial rows costs them almost nothing on full evidence.
 - **XGBoost and logistic regression are close after dropout.** XGBoost has slightly higher top-3 (0.989 vs 0.983) but higher ECE (0.0036 vs 0.0027). Logistic regression wins under the selection rule (lowest partial-evidence ECE among pairs meeting both top-3 floors). It is also faster (82 s to train vs 580 s) and easier to explain. XGBoost hit its 400-round cap without early stopping on both dev and full data, so it may improve with more rounds; that is a follow-up, not a reason to change the rule.
@@ -49,7 +50,7 @@ Held-out patients keep the initial evidence plus n other random evidences:
 | 8 | 0.980 | 1.000 | 0.026 | 0.002 |
 | 12 | 0.998 | 1.000 | 0.010 | 0.002 |
 
-The 3b champion reaches 95% top-3 after just 2 extra evidences, and its probabilities are honest at every step. That is what the Phase 8 question selector needs.
+The 3b champion first passes 95% top-3 with 3 extra evidences (0.949 with 2). Its calibration is good from 2 extra evidences on (ECE 0.007 or lower), but weaker with the initial evidence alone (ECE 0.084). Every point beats the Phase 3 champion. Accurate, honest probabilities after a few answers are what the Phase 8 question selector needs.
 
 ## Abstention threshold
 
@@ -61,7 +62,7 @@ The Phase 3 rule is the smallest threshold whose answered patients reach 95% top
 | Initial + 3 (validation) | 89.7% | 0.953 | 0.999 |
 | Full record (validation) | 99.9% | 0.995 | 1.000 |
 
-For comparison, the Phase 3 threshold of 0.84 would answer only 16% of first-turn patients. An abstention is not a dead end: in Phase 8 it becomes "ask the next most informative question".
+For comparison, the Phase 3 threshold of 0.84 would answer only 16.0% of first-turn patients (same held-out rows; computed when choosing the threshold). The threshold was chosen and is reported on the same held-out rows; test agrees closely (89.6% vs 89.7% of initial-plus-3 patients answered). An abstention is not a dead end: in Phase 8 it becomes "ask the next most informative question".
 
 ## Final test evaluation (134,529 patients, scored once)
 
@@ -70,7 +71,7 @@ For comparison, the Phase 3 threshold of 0.84 would answer only 16% of first-tur
 | Full | 0.995 | 1.000 | 1.000 | 0.994 | 0.0010 | 100.0% | 1.000 |
 | Initial + 3 | 0.899 | 0.984 | 0.993 | 0.905 | 0.0028 | 89.6% | 0.999 |
 
-Test agrees closely with validation (partial top-3 0.984 vs 0.983, ECE 0.0028 vs 0.0027). So choosing the champion and threshold on validation did not overfit noticeably. This is the first and only look at test for this classifier. `make eval` now refuses to run it again.
+Test agrees closely with validation (partial top-3 0.984 vs 0.983, ECE 0.0028 vs 0.0027). So choosing the champion and threshold on validation did not overfit noticeably. This is the first and only look at test for this classifier. `make eval` now refuses to run it again. (Phase 2 scored its raw models on test once, on 2026-10-21. That record, `reports/model_comparison.md` with `reports/test_eval_lock.json`, is kept as history; no code uses that lock any more.)
 
 ## Notes and follow-ups
 

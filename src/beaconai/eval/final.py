@@ -73,6 +73,26 @@ def check_final_allowed(
         )
 
 
+def _write_lock(
+    lock: Path,
+    name: str,
+    model_version: int,
+    status: str,
+    started_at: str,
+    completed_at: str | None = None,
+) -> None:
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "evaluation": name,
+        "model_version": model_version,
+        "status": status,
+        "started_at": started_at,
+    }
+    if completed_at is not None:
+        payload["completed_at"] = completed_at
+    lock.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def run_final_evaluation(cfg: Config) -> Path:
     mlflow_cfg, _, _, eval_cfg = require_training(cfg)
     cal_cfg, abst = require_calibration(cfg)
@@ -91,6 +111,10 @@ def run_final_evaluation(cfg: Config) -> Path:
         ) from err
     tags = dict(version.tags)
     check_final_allowed(on_disk, tags, lock)
+    # Lock before the test split is read: if anything fails after this point, the test split
+    # may already have been seen, so a rerun must still be refused.
+    started_at = datetime.now(UTC).isoformat(timespec="seconds")
+    _write_lock(lock, cfg.final_eval.name, int(version.version), "started", started_at)
 
     clf = load_calibrated(f"models:/{name}@{alias}")
     labels, features = load_labels(processed), load_features(processed)
@@ -144,18 +168,13 @@ def run_final_evaluation(cfg: Config) -> Path:
         )
         for path in (report, summary_path, figure):
             mlflow.log_artifact(str(path))
-    lock.parent.mkdir(parents=True, exist_ok=True)
-    lock.write_text(
-        json.dumps(
-            {
-                "evaluation": cfg.final_eval.name,
-                "model_version": int(version.version),
-                "evaluated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+    _write_lock(
+        lock,
+        cfg.final_eval.name,
+        int(version.version),
+        "completed",
+        started_at,
+        completed_at=datetime.now(UTC).isoformat(timespec="seconds"),
     )
     return report
 

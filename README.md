@@ -47,7 +47,7 @@ make mlflow       # MLflow UI on http://localhost:5000
 
 - Tuning uses the validation split only. The best model by validation top-3 accuracy (exact ties broken by top-1, then macro F1) is registered in MLflow as `beaconai-classifier` with alias `raw-champion` (`raw-dev` for the dev subsample). The `champion` alias is reserved for the calibrated model from `make calibrate`, which is what downstream phases load.
 - Training and evaluation check that the processed data on disk matches the expected scope (dev subsample or full) and refuse with the rebuild command if not.
-- The Phase 2 commands never touch the test split. The only test evaluation is `make eval` (see below).
+- The Phase 2 commands no longer touch the test split. Test is scored only by `make eval` (see below). Phase 2 scored its raw models on test once, on 2026-10-21; `reports/model_comparison.md` and `reports/test_eval_lock.json` are kept as history.
 - Metrics: top-1/3/5 accuracy, macro F1, per-class recall, confusion matrix, and overlap with the DDXPlus reference differential (precision@k, raw recall@k, and normalized recall@k = hits / min(k, |differential|); normalized recall@3 is the headline).
 - Full-data run: `BEACONAI_DEV_SAMPLE=null uv run python -m beaconai.data.preprocess`, then `BEACONAI_DEV_SAMPLE=null make train-final`, `make train-dropout` and `make calibrate` (each with `BEACONAI_DEV_SAMPLE=null`). Run `make data` afterwards to return to the dev subsample. (`make data` uses DVC, which only sees `config/base.yaml`, not the environment override.)
 
