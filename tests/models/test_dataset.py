@@ -63,3 +63,29 @@ def test_load_meta_missing_says_run_make_data(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError, match="make data"):
         load_meta(tmp_path, "validate")
+
+
+def test_augment_with_dropout_stacks_original_and_copies(toy_processed: Path) -> None:
+    from beaconai.eval.partial import column_evidence
+    from beaconai.models.dataset import augment_with_dropout, load_features, load_meta
+
+    data = load_split(toy_processed, "train")
+    initial = load_meta(toy_processed, "train")["initial_evidence"]
+    cols = column_evidence(load_features(toy_processed))
+    aug = augment_with_dropout(data, initial, cols, (0.5, 0.95), 2, True, seed=0)
+    n = data.n
+    assert aug.n == 3 * n and aug.ddx is None
+    np.testing.assert_array_equal(aug.y, np.tile(data.y, 3))
+    np.testing.assert_array_equal(aug.X[:n].toarray(), data.X.toarray())  # originals first
+    assert aug.X[n:].nnz < 2 * data.X.nnz  # copies lost evidence
+    assert not np.array_equal(aug.X[n : 2 * n].toarray(), aug.X[2 * n :].toarray())
+    assert augment_with_dropout(data, initial, cols, (0.5, 0.95), 1, False, 0).n == n
+    with pytest.raises(ValueError, match="no training rows"):
+        augment_with_dropout(data, initial, cols, (0.5, 0.95), 0, False, 0)
+
+
+def test_split_indices_still_importable_from_calibrate() -> None:
+    from beaconai.models.calibrate import split_indices as a
+    from beaconai.models.dataset import split_indices as b
+
+    assert a is b

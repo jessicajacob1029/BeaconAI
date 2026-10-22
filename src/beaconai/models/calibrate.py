@@ -49,6 +49,7 @@ from beaconai.models.dataset import (
     load_labels,
     load_meta,
     load_split,
+    split_indices,
     subset,
 )
 from beaconai.models.pyfunc import CalibratedPyfunc, log_pyfunc
@@ -72,19 +73,6 @@ class CalibrationResult:
     model_uri: str
     metrics: dict[str, float]
     temperature: float | None
-
-
-def split_indices(y: np.ndarray, fit_fraction: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
-    """Per-class split of row indices into (fit, held-out). A one-patient class is held out."""
-    rng = np.random.default_rng(seed)
-    fit, held = [], []
-    for c in np.unique(y):
-        idx = np.flatnonzero(y == c)
-        rng.shuffle(idx)
-        n_fit = min(max(round(fit_fraction * len(idx)), 1), len(idx) - 1) if len(idx) > 1 else 0
-        fit.append(idx[:n_fit])
-        held.append(idx[n_fit:])
-    return np.sort(np.concatenate(fit)), np.sort(np.concatenate(held))
 
 
 def calibration_metrics(y: np.ndarray, proba: np.ndarray, n_bins: int) -> dict[str, float]:
