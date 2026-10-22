@@ -1,0 +1,792 @@
+{
+  "dev_sample": null,
+  "champion": {
+    "version": 13,
+    "model": "logreg+dropout",
+    "method": "isotonic",
+    "calibrated_on": "partial"
+  },
+  "baseline": {
+    "source": "raw train CSV (full training set)",
+    "n_patients": 1025602,
+    "age_mean": 39.714842599760914,
+    "male_share": 0.4853773686088756
+  },
+  "centering_max_abs_mean": 0.015222158054916226,
+  "ranking_min_prob": 0.01,
+  "ranking": {
+    "full": {
+      "top1_changed": 0.000543617776301285,
+      "topk_set_changed": 0.00010570345650302765,
+      "shown_set_changed": 0.000468115307370551
+    },
+    "partial": {
+      "top1_changed": 0.015402503661869743,
+      "topk_set_changed": 0.05585672651495704,
+      "shown_set_changed": 0.040408921371728856
+    }
+  },
+  "latency_ms": {
+    "median": 0.5938124377280474,
+    "p95": 0.6993536837399007,
+    "budget": 50.0,
+    "n": 300
+  },
+  "examples": [
+    "BeaconAI answers. Why Panic attack rather than GERD: Do you feel like you are detached from your own body or your surroundings?: yes (+9.17), How precisely is the pain located? (0-10 scale): 7/10 (+0.15), Sex: female (training mix 49% male) (+0.03). Pointing to GERD instead: How intense is the pain? (0-10 scale): 6/10 (-0.37), Do you have asthma or have you ever had to use a bronchodilator in the past?: yes (-0.34), Age: 10 (training average 40) (-0.18). (True condition: Panic attack.)",
+    "BeaconAI answers. Why Anaphylaxis rather than Influenza: How fast did the pain appear? (0-10 scale): 5/10 (+0.72), Age: 68 (training average 40) (+0.17), Sex: female (training mix 49% male) (+0.05). Pointing to Influenza instead: Do you have pain somewhere, related to your reason for consulting?: yes (-0.02), Does the pain radiate to another location? = nowhere (-0.01). (True condition: Influenza.)",
+    "BeaconAI abstains. Why Boerhaave rather than GERD: Do you feel pain somewhere? = upper chest (+1.00), How fast did the pain appear? (0-10 scale): 6/10 (+0.84), Do you feel pain somewhere? = lower chest (+0.25). Pointing to GERD instead: Do you feel pain somewhere? = epigastric (-1.15), Do you feel pain somewhere? = hypochondrium(R) (-0.87), Do you have pain somewhere, related to your reason for consulting?: yes (-0.17). (True condition: Boerhaave.)"
+  ],
+  "global": {
+    "Pneumonia": [
+      {
+        "index": 418,
+        "name": "E_77",
+        "label": "Do you have a cough that produces colored or more abundant sputum than usual?",
+        "coef": 9.86833667755127,
+        "prevalence_condition": 0.8529172004191317,
+        "prevalence_all": 0.0955360851479015,
+        "flags": []
+      },
+      {
+        "index": 475,
+        "name": "E_131_@_V_12",
+        "label": "Do your lesions peel off? = Y",
+        "coef": 9.19819164276123,
+        "prevalence_condition": 0.993284422188367,
+        "prevalence_all": 0.024949249318922565,
+        "flags": []
+      },
+      {
+        "index": 434,
+        "name": "E_94",
+        "label": "Have you had chills or shivers?",
+        "coef": 8.83405876159668,
+        "prevalence_condition": 0.6882496797484745,
+        "prevalence_all": 0.03449388749240065,
+        "flags": []
+      },
+      {
+        "index": 44,
+        "name": "E_45",
+        "label": "Have you been coughing up blood?",
+        "coef": 8.624073028564453,
+        "prevalence_condition": 0.5212918753155428,
+        "prevalence_all": 0.09828471473324285,
+        "flags": []
+      },
+      {
+        "index": 834,
+        "name": "E_161",
+        "label": "Have you recently had a loss of appetite or do you get full more quickly then usually?",
+        "coef": 8.181355476379395,
+        "prevalence_condition": 0.665812662551954,
+        "prevalence_all": 0.05437684403893475,
+        "flags": []
+      },
+      {
+        "index": 467,
+        "name": "E_129",
+        "label": "Do you have any lesions, redness or problems on your skin that you believe are related to the condition you are consulting for?",
+        "coef": 7.980473041534424,
+        "prevalence_condition": 0.993284422188367,
+        "prevalence_all": 0.16328263790442443,
+        "flags": []
+      },
+      {
+        "index": 903,
+        "name": "E_219",
+        "label": "Are your symptoms more prominent at night?",
+        "coef": 7.751903057098389,
+        "prevalence_condition": 0.5723380303560694,
+        "prevalence_all": 0.030869674591094274,
+        "flags": []
+      },
+      {
+        "index": 904,
+        "name": "E_220",
+        "label": "Do you have pain that is increased when you breathe in deeply?",
+        "coef": 7.709184646606445,
+        "prevalence_condition": 0.5270758122745074,
+        "prevalence_all": 0.062416024929782814,
+        "flags": []
+      },
+      {
+        "index": 472,
+        "name": "E_130_@_V_156",
+        "label": "What color is the rash? = pink",
+        "coef": 7.69374942779541,
+        "prevalence_condition": 0.993284422188367,
+        "prevalence_all": 0.09266655096214074,
+        "flags": []
+      },
+      {
+        "index": 848,
+        "name": "E_175",
+        "label": "Have you noticed any new fatigue, generalized and vague discomfort, diffuse (widespread) muscle aches or a change in your general well-being related to your consultation today?",
+        "coef": 7.574164867401123,
+        "prevalence_condition": 0.6051783704049558,
+        "prevalence_all": 0.04062979596372956,
+        "flags": []
+      }
+    ],
+    "Possible NSTEMI / STEMI": [
+      {
+        "index": 448,
+        "name": "E_108",
+        "label": "Do you have a problem with poor circulation?",
+        "coef": 8.278223037719727,
+        "prevalence_condition": 0.7322671683914495,
+        "prevalence_all": 0.015179377575318261,
+        "flags": []
+      },
+      {
+        "index": 834,
+        "name": "E_161",
+        "label": "Have you recently had a loss of appetite or do you get full more quickly then usually?",
+        "coef": 7.8103861808776855,
+        "prevalence_condition": 0.6399811853245745,
+        "prevalence_all": 0.05437684403893475,
+        "flags": []
+      },
+      {
+        "index": 2,
+        "name": "E_2",
+        "label": "Are you infected with the human immunodeficiency virus (HIV)?",
+        "coef": 7.6523566246032715,
+        "prevalence_condition": 0.6696613358420047,
+        "prevalence_all": 0.02354227078339164,
+        "flags": []
+      },
+      {
+        "index": 864,
+        "name": "E_191",
+        "label": "Are you a former smoker?",
+        "coef": 7.5500264167785645,
+        "prevalence_condition": 0.5905456255879356,
+        "prevalence_all": 0.02352472011558876,
+        "flags": []
+      },
+      {
+        "index": 49,
+        "name": "E_50",
+        "label": "Have you had significantly increased sweating?",
+        "coef": 7.386529922485352,
+        "prevalence_condition": 0.6387111947319111,
+        "prevalence_all": 0.12585876392568263,
+        "flags": []
+      },
+      {
+        "index": 67,
+        "name": "E_54_@_V_196",
+        "label": "Characterize your pain: = scary",
+        "coef": 7.1752471923828125,
+        "prevalence_condition": 0.7412511759173277,
+        "prevalence_all": 0.024836145015304,
+        "flags": []
+      },
+      {
+        "index": 66,
+        "name": "E_54_@_V_193",
+        "label": "Characterize your pain: = sickening",
+        "coef": 6.826240062713623,
+        "prevalence_condition": 0.7433678269051001,
+        "prevalence_all": 0.04426278419893876,
+        "flags": []
+      },
+      {
+        "index": 429,
+        "name": "E_89",
+        "label": "Do you constantly feel fatigued or do you have non-restful sleep?",
+        "coef": 6.240437030792236,
+        "prevalence_condition": 0.5570084666038979,
+        "prevalence_all": 0.08815212918841586,
+        "flags": []
+      },
+      {
+        "index": 410,
+        "name": "E_69",
+        "label": "Do you have diabetes?",
+        "coef": 5.874062538146973,
+        "prevalence_condition": 0.7642991533397379,
+        "prevalence_all": 0.0880614507381013,
+        "flags": []
+      },
+      {
+        "index": 657,
+        "name": "E_148",
+        "label": "Are you feeling nauseous or do you feel like vomiting?",
+        "coef": 5.785212993621826,
+        "prevalence_condition": 0.5992474129821108,
+        "prevalence_all": 0.10527280563006493,
+        "flags": []
+      }
+    ],
+    "Unstable angina": [
+      {
+        "index": 13,
+        "name": "E_13",
+        "label": "Do you find that your symptoms have worsened over the last 2 weeks and that progressively less effort is required to cause the symptoms?",
+        "coef": 12.600369453430176,
+        "prevalence_condition": 0.6962907173792474,
+        "prevalence_all": 0.01442274878559273,
+        "flags": []
+      },
+      {
+        "index": 14,
+        "name": "E_14",
+        "label": "Do you have chest pain even at rest?",
+        "coef": 9.513097763061523,
+        "prevalence_condition": 0.6589625305970774,
+        "prevalence_all": 0.019289158952493585,
+        "flags": []
+      },
+      {
+        "index": 902,
+        "name": "E_218",
+        "label": "Do you have symptoms that are increased with physical exertion but alleviated with rest?",
+        "coef": 7.48744535446167,
+        "prevalence_condition": 0.7173319525515425,
+        "prevalence_all": 0.06722100775935495,
+        "flags": []
+      },
+      {
+        "index": 49,
+        "name": "E_50",
+        "label": "Have you had significantly increased sweating?",
+        "coef": 7.114270210266113,
+        "prevalence_condition": 0.5276313311995311,
+        "prevalence_all": 0.12585876392568263,
+        "flags": []
+      },
+      {
+        "index": 652,
+        "name": "E_143",
+        "label": "Do you exercise regularly, 4 times per week or more?",
+        "coef": 6.487544536590576,
+        "prevalence_condition": 0.6554321220111219,
+        "prevalence_all": 0.02445880565754207,
+        "flags": []
+      },
+      {
+        "index": 429,
+        "name": "E_89",
+        "label": "Do you constantly feel fatigued or do you have non-restful sleep?",
+        "coef": 6.281477451324463,
+        "prevalence_condition": 0.5417529655433533,
+        "prevalence_all": 0.08815212918841586,
+        "flags": []
+      },
+      {
+        "index": 445,
+        "name": "E_105",
+        "label": "Have you ever had a heart attack or do you have angina (chest pain)?",
+        "coef": 5.866911888122559,
+        "prevalence_condition": 0.8172189794768447,
+        "prevalence_all": 0.07535184213756052,
+        "flags": []
+      },
+      {
+        "index": 410,
+        "name": "E_69",
+        "label": "Do you have diabetes?",
+        "coef": 5.771384239196777,
+        "prevalence_condition": 0.7625211824517735,
+        "prevalence_all": 0.0880614507381013,
+        "flags": []
+      },
+      {
+        "index": 909,
+        "name": "E_225",
+        "label": "Do you have close family members who had a cardiovascular disease problem before the age of 50?",
+        "coef": 5.715719223022461,
+        "prevalence_condition": 0.766286951610126,
+        "prevalence_all": 0.040954483318084,
+        "flags": []
+      },
+      {
+        "index": 68,
+        "name": "E_54_@_V_198",
+        "label": "Characterize your pain: = exhausting",
+        "coef": 5.672050952911377,
+        "prevalence_condition": 0.7427508943704224,
+        "prevalence_all": 0.10682993987901496,
+        "flags": []
+      }
+    ],
+    "Pulmonary embolism": [
+      {
+        "index": 660,
+        "name": "E_151",
+        "label": "Do you have swelling in one or more areas of your body?",
+        "coef": 9.986907958984375,
+        "prevalence_condition": 0.8934760448526252,
+        "prevalence_all": 0.0965822999563695,
+        "flags": []
+      },
+      {
+        "index": 44,
+        "name": "E_45",
+        "label": "Have you been coughing up blood?",
+        "coef": 8.767976760864258,
+        "prevalence_condition": 0.6296781709628246,
+        "prevalence_all": 0.09828471473324285,
+        "flags": []
+      },
+      {
+        "index": 832,
+        "name": "E_159",
+        "label": "Did you lose consciousness?",
+        "coef": 8.667627334594727,
+        "prevalence_condition": 0.6683049366538374,
+        "prevalence_all": 0.034122398357238355,
+        "flags": []
+      },
+      {
+        "index": 869,
+        "name": "E_196",
+        "label": "Have you had surgery within the last month?",
+        "coef": 8.262870788574219,
+        "prevalence_condition": 0.9528906363773498,
+        "prevalence_all": 0.03800694616428974,
+        "flags": []
+      },
+      {
+        "index": 904,
+        "name": "E_220",
+        "label": "Do you have pain that is increased when you breathe in deeply?",
+        "coef": 7.901653289794922,
+        "prevalence_condition": 0.7195281782440871,
+        "prevalence_all": 0.062416024929782814,
+        "flags": []
+      },
+      {
+        "index": 34,
+        "name": "E_34",
+        "label": "Do you have an active cancer?",
+        "coef": 7.428442001342773,
+        "prevalence_condition": 0.675731760594428,
+        "prevalence_all": 0.018097663616098027,
+        "flags": []
+      },
+      {
+        "index": 450,
+        "name": "E_110",
+        "label": "Have you been unable to move or get up for more than 3 consecutive days within the last 4 weeks?",
+        "coef": 7.155336856842041,
+        "prevalence_condition": 0.6103829911171726,
+        "prevalence_all": 0.01634747202131077,
+        "flags": []
+      },
+      {
+        "index": 449,
+        "name": "E_109",
+        "label": "Have you ever had deep vein thrombosis (DVT)?",
+        "coef": 6.490995407104492,
+        "prevalence_condition": 0.6613513907094609,
+        "prevalence_all": 0.03305668280675965,
+        "flags": []
+      },
+      {
+        "index": 178,
+        "name": "E_55_@_V_127",
+        "label": "Do you feel pain somewhere? = scapula(R)",
+        "coef": 6.052109718322754,
+        "prevalence_condition": 0.7284476481727375,
+        "prevalence_all": 0.021431315461545173,
+        "flags": []
+      },
+      {
+        "index": 179,
+        "name": "E_55_@_V_128",
+        "label": "Do you feel pain somewhere? = scapula(L)",
+        "coef": 5.995749473571777,
+        "prevalence_condition": 0.7229139362170034,
+        "prevalence_all": 0.020841418015948354,
+        "flags": []
+      }
+    ],
+    "Anaphylaxis": [
+      {
+        "index": 660,
+        "name": "E_151",
+        "label": "Do you have swelling in one or more areas of your body?",
+        "coef": 9.943157196044922,
+        "prevalence_condition": 0.9934338696878107,
+        "prevalence_all": 0.0965822999563695,
+        "flags": []
+      },
+      {
+        "index": 41,
+        "name": "E_42",
+        "label": "Have you been in contact with or ate something that you have an allergy to?",
+        "coef": 9.223873138427734,
+        "prevalence_condition": 0.7713038458764823,
+        "prevalence_all": 0.020845318164348994,
+        "flags": []
+      },
+      {
+        "index": 832,
+        "name": "E_159",
+        "label": "Did you lose consciousness?",
+        "coef": 8.408576965332031,
+        "prevalence_condition": 0.60029583664054,
+        "prevalence_all": 0.034122398357238355,
+        "flags": []
+      },
+      {
+        "index": 467,
+        "name": "E_129",
+        "label": "Do you have any lesions, redness or problems on your skin that you believe are related to the condition you are consulting for?",
+        "coef": 7.9440484046936035,
+        "prevalence_condition": 1.0000000000002456,
+        "prevalence_all": 0.16328263790442443,
+        "flags": []
+      },
+      {
+        "index": 472,
+        "name": "E_130_@_V_156",
+        "label": "What color is the rash? = pink",
+        "coef": 7.824627876281738,
+        "prevalence_condition": 1.0000000000002456,
+        "prevalence_all": 0.09266655096214074,
+        "flags": []
+      },
+      {
+        "index": 12,
+        "name": "E_12",
+        "label": "Do you have a known severe food allergy?",
+        "coef": 7.816973686218262,
+        "prevalence_condition": 0.8045313514685293,
+        "prevalence_all": 0.021743327333596383,
+        "flags": []
+      },
+      {
+        "index": 867,
+        "name": "E_194",
+        "label": "Have you noticed a high pitched sound when breathing in?",
+        "coef": 7.702407360076904,
+        "prevalence_condition": 0.5997907496934296,
+        "prevalence_all": 0.04200069812655944,
+        "flags": []
+      },
+      {
+        "index": 423,
+        "name": "E_82",
+        "label": "Do you feel lightheaded and dizzy or do you feel like you are about to faint?",
+        "coef": 7.639524936676025,
+        "prevalence_condition": 0.6312865286096696,
+        "prevalence_all": 0.08910669050946914,
+        "flags": []
+      },
+      {
+        "index": 898,
+        "name": "E_214",
+        "label": "Have you noticed a wheezing sound when you exhale?",
+        "coef": 7.548839569091797,
+        "prevalence_condition": 0.596146908146419,
+        "prevalence_all": 0.07225804941876375,
+        "flags": []
+      },
+      {
+        "index": 474,
+        "name": "E_131_@_V_10",
+        "label": "Do your lesions peel off? = N",
+        "coef": 6.778182506561279,
+        "prevalence_condition": 1.0000000000002456,
+        "prevalence_all": 0.1701283733847211,
+        "flags": []
+      }
+    ],
+    "Influenza": [
+      {
+        "index": 428,
+        "name": "E_88",
+        "label": "Do you feel so tired that you are unable to do your usual activities or are you stuck in your bed all day long?",
+        "coef": 9.364421844482422,
+        "prevalence_condition": 0.777524988810802,
+        "prevalence_all": 0.06965275028714542,
+        "flags": []
+      },
+      {
+        "index": 434,
+        "name": "E_94",
+        "label": "Have you had chills or shivers?",
+        "coef": 8.631415367126465,
+        "prevalence_condition": 0.658175443831061,
+        "prevalence_all": 0.03449388749240065,
+        "flags": []
+      },
+      {
+        "index": 911,
+        "name": "E_227",
+        "label": "Are you immunosuppressed?",
+        "coef": 8.386754035949707,
+        "prevalence_condition": 0.5725048485752906,
+        "prevalence_all": 0.0636757728631857,
+        "flags": []
+      },
+      {
+        "index": 834,
+        "name": "E_161",
+        "label": "Have you recently had a loss of appetite or do you get full more quickly then usually?",
+        "coef": 7.986757278442383,
+        "prevalence_condition": 0.6057735342383934,
+        "prevalence_all": 0.05437684403893475,
+        "flags": []
+      },
+      {
+        "index": 467,
+        "name": "E_129",
+        "label": "Do you have any lesions, redness or problems on your skin that you believe are related to the condition you are consulting for?",
+        "coef": 7.8313374519348145,
+        "prevalence_condition": 0.8652096076381055,
+        "prevalence_all": 0.16328263790442443,
+        "flags": []
+      },
+      {
+        "index": 472,
+        "name": "E_130_@_V_156",
+        "label": "What color is the rash? = pink",
+        "coef": 7.781265735626221,
+        "prevalence_condition": 0.8652096076381055,
+        "prevalence_all": 0.09266655096214074,
+        "flags": []
+      },
+      {
+        "index": 49,
+        "name": "E_50",
+        "label": "Have you had significantly increased sweating?",
+        "coef": 7.429426670074463,
+        "prevalence_condition": 0.6830150678799696,
+        "prevalence_all": 0.12585876392568263,
+        "flags": []
+      },
+      {
+        "index": 653,
+        "name": "E_144",
+        "label": "Do you have diffuse (widespread) muscle pain?",
+        "coef": 7.36009407043457,
+        "prevalence_condition": 0.6927495151423797,
+        "prevalence_all": 0.09066284972131901,
+        "flags": []
+      },
+      {
+        "index": 437,
+        "name": "E_97",
+        "label": "Do you have a sore throat?",
+        "coef": 7.232352256774902,
+        "prevalence_condition": 0.5406907354916284,
+        "prevalence_all": 0.0921468561877573,
+        "flags": []
+      },
+      {
+        "index": 474,
+        "name": "E_131_@_V_10",
+        "label": "Do your lesions peel off? = N",
+        "coef": 6.666929244995117,
+        "prevalence_condition": 0.9999999999996005,
+        "prevalence_all": 0.1701283733847211,
+        "flags": []
+      }
+    ],
+    "Acute rhinosinusitis": [
+      {
+        "index": 855,
+        "name": "E_182",
+        "label": "Do you have greenish or yellowish nasal discharge?",
+        "coef": 8.78570556640625,
+        "prevalence_condition": 0.8133745765209278,
+        "prevalence_all": 0.02412534296928734,
+        "flags": []
+      },
+      {
+        "index": 443,
+        "name": "E_103",
+        "label": "Have you lost your sense of smell?",
+        "coef": 8.750039100646973,
+        "prevalence_condition": 0.7423037266166372,
+        "prevalence_all": 0.02671016632181158,
+        "flags": []
+      },
+      {
+        "index": 459,
+        "name": "E_120",
+        "label": "Do you have polyps in your nose?",
+        "coef": 7.218362808227539,
+        "prevalence_condition": 0.9120636323465748,
+        "prevalence_all": 0.030315853518203376,
+        "flags": []
+      },
+      {
+        "index": 60,
+        "name": "E_54_@_V_181",
+        "label": "Characterize your pain: = burning",
+        "coef": 6.743502616882324,
+        "prevalence_condition": 0.8093975548682525,
+        "prevalence_all": 0.15121557875271507,
+        "flags": []
+      },
+      {
+        "index": 910,
+        "name": "E_226",
+        "label": "Are you more likely to develop common allergies than the general population?",
+        "coef": 6.718696594238281,
+        "prevalence_condition": 0.8080718809840274,
+        "prevalence_all": 0.07771923221674065,
+        "flags": []
+      },
+      {
+        "index": 457,
+        "name": "E_118",
+        "label": "Have you ever had pneumonia?",
+        "coef": 6.681814670562744,
+        "prevalence_condition": 0.7230078067462495,
+        "prevalence_all": 0.05571069479195842,
+        "flags": []
+      },
+      {
+        "index": 456,
+        "name": "E_116",
+        "label": "Have you had a cold in the last 2 weeks?",
+        "coef": 6.630772113800049,
+        "prevalence_condition": 0.6190160553837021,
+        "prevalence_all": 0.05710694791939255,
+        "flags": []
+      },
+      {
+        "index": 463,
+        "name": "E_125",
+        "label": "Have you ever been diagnosed with gastroesophageal reflux?",
+        "coef": 6.332509994506836,
+        "prevalence_condition": 0.689055825600262,
+        "prevalence_all": 0.043336498953783435,
+        "flags": []
+      },
+      {
+        "index": 460,
+        "name": "E_121",
+        "label": "Do you have a deviated nasal septum?",
+        "coef": 6.1026611328125,
+        "prevalence_condition": 0.690602445131858,
+        "prevalence_all": 0.02285096947937818,
+        "flags": []
+      },
+      {
+        "index": 462,
+        "name": "E_124",
+        "label": "Do you have asthma or have you ever had to use a bronchodilator in the past?",
+        "coef": 5.9304280281066895,
+        "prevalence_condition": 0.8747238179409009,
+        "prevalence_all": 0.13486615665705715,
+        "flags": []
+      }
+    ],
+    "Croup": [
+      {
+        "index": 875,
+        "name": "E_202",
+        "label": "Does the person have a whooping cough?",
+        "coef": 8.473800659179688,
+        "prevalence_condition": 0.7282608695651943,
+        "prevalence_all": 0.002025152057035879,
+        "flags": []
+      },
+      {
+        "index": 903,
+        "name": "E_219",
+        "label": "Are your symptoms more prominent at night?",
+        "coef": 8.34128475189209,
+        "prevalence_condition": 0.6388499298737621,
+        "prevalence_all": 0.030869674591094274,
+        "flags": []
+      },
+      {
+        "index": 867,
+        "name": "E_194",
+        "label": "Have you noticed a high pitched sound when breathing in?",
+        "coef": 8.216071128845215,
+        "prevalence_condition": 0.7212482468442977,
+        "prevalence_all": 0.04200069812655944,
+        "flags": []
+      },
+      {
+        "index": 4,
+        "name": "E_4",
+        "label": "Have you or any member of your family ever had croup?",
+        "coef": 7.864859580993652,
+        "prevalence_condition": 0.7850631136044571,
+        "prevalence_all": 0.0021831080672620852,
+        "flags": []
+      },
+      {
+        "index": 863,
+        "name": "E_190",
+        "label": "Have you noticed that you produce more saliva than usual?",
+        "coef": 7.7271294593811035,
+        "prevalence_condition": 0.5873071528751718,
+        "prevalence_all": 0.01399178238732123,
+        "flags": []
+      },
+      {
+        "index": 854,
+        "name": "E_181",
+        "label": "Do you have nasal congestion or a clear runny nose?",
+        "coef": 6.441195964813232,
+        "prevalence_condition": 0.6514726507713761,
+        "prevalence_all": 0.19769462228073975,
+        "flags": []
+      },
+      {
+        "index": 893,
+        "name": "E_209",
+        "label": "Are your vaccinations up to date?",
+        "coef": 5.670746803283691,
+        "prevalence_condition": 0.5203366058906088,
+        "prevalence_all": 0.05615433667253281,
+        "flags": []
+      },
+      {
+        "index": 431,
+        "name": "E_91",
+        "label": "Do you have a fever (either felt or measured with a thermometer)?",
+        "coef": 5.442200183868408,
+        "prevalence_condition": 0.5911640953716649,
+        "prevalence_all": 0.2108176466119337,
+        "flags": []
+      },
+      {
+        "index": 913,
+        "name": "AGE_BIN_1",
+        "label": "Age 1-4",
+        "coef": 3.396307945251465,
+        "prevalence_condition": 0.3723702664796695,
+        "prevalence_all": 0.035270017024130795,
+        "flags": [
+          "demographic"
+        ]
+      },
+      {
+        "index": 912,
+        "name": "AGE_BIN_0",
+        "label": "Age 0",
+        "coef": 3.293721914291382,
+        "prevalence_condition": 0.17671809256662216,
+        "prevalence_all": 0.016536629218741817,
+        "flags": [
+          "demographic"
+        ]
+      }
+    ]
+  },
+  "images": {
+    "Pneumonia": "figures/top_features_pneumonia.png",
+    "Possible NSTEMI / STEMI": "figures/top_features_possible_nstemi___stemi.png",
+    "Unstable angina": "figures/top_features_unstable_angina.png",
+    "Pulmonary embolism": "figures/top_features_pulmonary_embolism.png",
+    "Anaphylaxis": "figures/top_features_anaphylaxis.png",
+    "Influenza": "figures/top_features_influenza.png",
+    "Acute rhinosinusitis": "figures/top_features_acute_rhinosinusitis.png",
+    "Croup": "figures/top_features_croup.png"
+  }
+}

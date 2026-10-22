@@ -123,8 +123,6 @@ def plot_top_features(features: list, condition: str, path: Path) -> Path:
             bar.set_hatch("//")
             bar.set_facecolor("#dd8452")
     ax.set_yticks(range(len(items)), labels, fontsize=7)
-    ax.set_xlabel(
-        "Coefficient (logit contribution when present, relative to the average condition)"
-    )
+    ax.set_xlabel("Coefficient (logit, relative to the average condition)")
     ax.set_title(f"{condition}: top features (hatched = flagged for review)")
     return _save(fig, path)
