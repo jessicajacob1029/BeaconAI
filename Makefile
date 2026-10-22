@@ -1,4 +1,4 @@
-.PHONY: help setup data eda train train-final eval eval-val calibrate test lint format serve ui mlflow
+.PHONY: help setup data eda train train-final train-dropout eval eval-val calibrate test lint format serve ui mlflow
 
 # macOS: torch and XGBoost must share torch's OpenMP runtime (see src/beaconai/models/openmp.py).
 ifeq ($(shell uname -s),Darwin)
@@ -20,6 +20,9 @@ format:  ## Auto-fix lint issues and format code
 	uv run ruff check --fix .
 	uv run ruff format .
 
+train-dropout:  ## Retrain the Phase 2 winners with random evidence dropout (Phase 3b)
+	uv run python -m beaconai.models.train_dropout
+
 calibrate:  ## Calibrate on validation, pick the champion by partial-evidence ECE, write reports
 	uv run python -m beaconai.models.calibrate
 
@@ -38,10 +41,10 @@ train:  ## Grid-search all models on validation, log to MLflow, register the bes
 train-final:  ## Retrain only the winning params from the last grid search (full data)
 	uv run python -m beaconai.models.train --winners-only
 
-eval:  ## Score test ONCE on full data and write reports/model_comparison.md
-	uv run python -m beaconai.eval.evaluate --split test
+eval:  ## Score the calibrated champion on test, once per evaluation name (full data)
+	uv run python -m beaconai.eval.final
 
-eval-val:  ## Validation-only report, safe to run while iterating
+eval-val:  ## Compare the Phase 2 models on validation (never touches test)
 	uv run python -m beaconai.eval.evaluate --split validate
 
 serve:  ## FastAPI on :8000 (Phase 5)

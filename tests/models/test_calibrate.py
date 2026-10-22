@@ -77,7 +77,8 @@ def test_run_calibration_full_data(tmp_path: Path) -> None:
     cfg = _trained(tmp_path, None)
     summary = run_calibration(cfg)
 
-    assert len(summary["candidates"]) == 6  # 2 models x 3 methods
+    # 2 models x (none once + temperature/isotonic on full and partial rows)
+    assert len(summary["candidates"]) == 10
     assert summary["registered"]["alias"] == "champion"
     assert summary["n_fit"] + summary["n_held"] == 60
     assert summary["top3_floor"] == {"full": 0.5, "partial": 0.0}
@@ -99,7 +100,7 @@ def test_run_calibration_full_data(tmp_path: Path) -> None:
     configure_mlflow(cfg.mlflow, experiment=cfg.calibration.experiment)
     runs = mlflow.search_runs(experiment_names=[cfg.calibration.experiment])
     children = runs[runs["tags.mlflow.parentRunId"].notna()]
-    assert len(children) == 6
+    assert len(children) == 10
     assert children["metrics.ece"].notna().all()
     assert children["metrics.partial_ece"].notna().all()
     mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "champion")
@@ -165,3 +166,106 @@ def test_answered_at_without_note_when_some_are_answered() -> None:
     out = answered_at(np.array([0, 1]), np.array([[0.6, 0.4], [0.7, 0.3]]), 0.65, k=1)
     assert out["coverage"] == 0.5 and out["top1_accuracy"] == 0.0
     assert "note" not in out
+
+
+def _with_calibration(cfg, **update):
+    return cfg.model_copy(update={"calibration": cfg.calibration.model_copy(update=update)})
+
+
+def test_variants_and_partial_rows_full_grid(tmp_path: Path) -> None:
+    from beaconai.models.train_dropout import run_dropout_training
+
+    cfg = _trained(tmp_path, None)
+    run_dropout_training(cfg)
+    summary = run_calibration(_with_calibration(cfg, variants=["baseline", "dropout"]))
+    keys = {(c["model"], c["method"], c["fit_on"]) for c in summary["candidates"]}
+    # 4 base models x (none once + temperature/isotonic on full and partial rows) = 20
+    assert len(keys) == len(summary["candidates"]) == 20
+    assert ("logreg+dropout", "temperature", "partial") in keys
+    assert ("xgboost", "none", "full") in keys and ("xgboost", "none", "partial") not in keys
+    configure_mlflow(cfg.mlflow)
+    mv = MlflowClient().get_model_version_by_alias("beaconai-classifier", "champion")
+    assert mv.tags["model_type"] == summary["champion"]["model"]
+    assert mv.tags["calibrated_on"] == summary["champion"]["fit_on"]
+
+
+def test_every_calibrator_is_fit_on_the_fit_half_only(tmp_path: Path, monkeypatch) -> None:
+    import beaconai.models.calibrate as calibrate
+
+    seen: list[np.ndarray] = []
+    real = calibrate.make_calibrator
+
+    class Spy:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def fit(self, proba, y):
+            seen.append(np.asarray(y).copy())
+            return self.inner.fit(proba, y)
+
+    monkeypatch.setattr(calibrate, "make_calibrator", lambda m, b: Spy(real(m, b)))
+    cfg = _trained(tmp_path, None)
+    run_calibration(cfg)
+    val = load_split(tmp_path / "processed" / "ddxplus", "validate")
+    fit_idx, held_idx = split_indices(val.y, cfg.calibration.fit_fraction, cfg.seed)
+    # Precondition: the two halves have different label sequences, so the check below can
+    # tell them apart (equal sizes alone would not).
+    assert not np.array_equal(val.y[fit_idx], val.y[held_idx])
+    assert seen
+    for y in seen:
+        np.testing.assert_array_equal(y, val.y[fit_idx])
+
+
+def test_missing_dropout_summary_when_variant_requested(tmp_path: Path) -> None:
+    cfg = _with_calibration(_trained(tmp_path, None), variants=["baseline", "dropout"])
+    with pytest.raises(FileNotFoundError, match="make train-dropout"):
+        run_calibration(cfg)
+
+
+def test_evidence_curve_function() -> None:
+    from scipy import sparse
+
+    from beaconai.models.calibrate import evidence_curve
+
+    X = sparse.csr_matrix(np.array([[1, 1, 1, 0], [0, 1, 1, 1]], dtype=np.float32))
+    cols = np.array(["E_0", "E_1", "E_2", "E_3"], dtype=object)
+    y = np.array([0, 1])
+
+    def proba(m):  # class 0 if E_0 present, else class 1
+        p = np.where(m[:, [0]].toarray() > 0, [[0.9, 0.1]], [[0.2, 0.8]])
+        return p
+
+    out = evidence_curve(proba, X, y, np.array(["E_0", "E_3"]), cols, [0, 12], 0, 10)
+    assert out["extra"] == [0, 12]
+    # With every evidence kept (12 > what anyone has), the curve equals full evidence.
+    assert out["top3_accuracy"][1] == 1.0
+    assert len(out["ece"]) == 2
+
+
+def test_run_reports_evidence_curve_and_baseline_comparison(tmp_path: Path) -> None:
+    cfg = _trained(tmp_path, None)
+    first = run_calibration(cfg)
+    curve = first["evidence_curve"]
+    assert curve["extra"] == [0, 1, 2]
+    assert len(curve["champion"]["top3_accuracy"]) == 3
+    assert curve["phase3_champion"] is None  # no baseline snapshot yet
+    reports = tmp_path / "reports"
+    assert (reports / "figures" / "evidence_curve.png").is_file()
+
+    (reports / "phase3_baseline_summary.json").write_text(json.dumps(first))
+    second = run_calibration(cfg)
+    assert second["evidence_curve"]["phase3_champion"] is not None
+    md = (reports / "calibration.md").read_text(encoding="utf-8")
+    assert "## Comparison with the Phase 3 baseline" in md
+    assert "## Accuracy and calibration by number of known evidences" in md
+
+
+def test_threshold_suggestion_on_initial_evidence_only(tmp_path: Path) -> None:
+    cfg = _trained(tmp_path, None)
+    abst = cfg.abstention.model_copy(update={"suggest_on_extra": 0})
+    summary = run_calibration(cfg.model_copy(update={"abstention": abst}))
+    a = summary["abstention"]
+    assert a["suggest_on_extra"] == 0
+    assert set(a["suggest_set"]) >= {"coverage", "top1_accuracy", "topk_accuracy"}
+    md = (tmp_path / "reports" / "calibration.md").read_text(encoding="utf-8")
+    assert "initial evidence plus 0 other evidences" in md

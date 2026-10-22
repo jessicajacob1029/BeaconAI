@@ -72,3 +72,38 @@ def load_features(processed_dir: Path) -> list[dict[str, Any]]:
 def load_feature_names(processed_dir: Path) -> list[str]:
     """Column names in matrix order, e.g. `E_55_@_V_14`."""
     return [f["name"] for f in load_features(processed_dir)]
+
+
+def split_indices(y: np.ndarray, fit_fraction: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """Per-class split of row indices into (fit, held-out). A one-patient class is held out."""
+    rng = np.random.default_rng(seed)
+    fit, held = [], []
+    for c in np.unique(y):
+        idx = np.flatnonzero(y == c)
+        rng.shuffle(idx)
+        n_fit = min(max(round(fit_fraction * len(idx)), 1), len(idx) - 1) if len(idx) > 1 else 0
+        fit.append(idx[:n_fit])
+        held.append(idx[n_fit:])
+    return np.sort(np.concatenate(fit)), np.sort(np.concatenate(held))
+
+
+def augment_with_dropout(
+    data: SplitData,
+    initial_evidence: np.ndarray,
+    col_evidence: np.ndarray,
+    rate_range: tuple[float, float],
+    copies: int,
+    keep_original: bool,
+    seed: int,
+) -> SplitData:
+    """Original rows (optional) followed by `copies` evidence-dropped copies of every row."""
+    from beaconai.eval.partial import evidence_dropout
+
+    parts = [data.X] if keep_original else []
+    for c in range(copies):
+        parts.append(
+            evidence_dropout(data.X, initial_evidence, col_evidence, rate_range, seed + 1 + c)
+        )
+    if not parts:
+        raise ValueError("no training rows: copies=0 and keep_original=False")
+    return SplitData(sparse.vstack(parts).tocsr(), np.tile(data.y, len(parts)), None)

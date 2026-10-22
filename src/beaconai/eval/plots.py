@@ -92,3 +92,18 @@ def plot_coverage(
     ax.set_title(f"{title} (dots: threshold {threshold:.2f})")
     ax.legend(fontsize=8)
     return _save(fig, path)
+
+
+def plot_evidence_curve(series: dict[str, dict], path: Path, title: str) -> Path:
+    """Top-3 accuracy and ECE against the number of known evidences besides the initial one."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
+    for label, curve in series.items():
+        ax1.plot(curve["extra"], curve["top3_accuracy"], marker="o", label=label)
+        ax2.plot(curve["extra"], curve["ece"], marker="o", label=label)
+    ax1.set_ylabel("Top-3 accuracy")
+    ax2.set_ylabel("ECE (lower is better)")
+    for ax in (ax1, ax2):
+        ax.set_xlabel("Other evidences known, besides the initial one")
+        ax.legend(fontsize=8)
+    fig.suptitle(title)
+    return _save(fig, path)
